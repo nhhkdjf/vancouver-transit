@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDi5CAFsVRx-GgLckskzAIoIoCULIACt6E&libraries=places"></script>
+    <title>Vancouver Transit Dashboard</title>
+    <style>
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+  font-family: Arial, sans-serif;
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  transition: background-image 1s ease;
+}
+
+      /* Time-based background photos */
+      body.morning {
+  background-image: url('morning.avif');
+}
+body.afternoon {
+  background-image: url('afternoon.avif');
+}
+body.evening {
+  background-image: url('evening.avif');
+}
+body.night {
+  background-image: url('night.avif');
+}
+
+      /* Dark overlay so text is always readable */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 15, 30, 0.35);
+        z-index: 0;
+      }
+
+      /* Everything sits above the overlay */
+      .wrapper {
+        position: relative;
+        z-index: 1;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      /* Frosted glass effect for all cards */
+      .glass {
+        background: rgba(10, 25, 50, 0.55);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+      }
+
+      /* ---- HEADER ---- */
+      .header {
+        padding: 20px 28px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #e8c87a;
+      }
+
+      .header h1 {
+        font-family: Arial, serif;
+        color: #f0e6cc;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+
+      .header p {
+        color: #8a9ab5;
+        font-size: 12px;
+        margin-top: 4px;
+        font-style: italic;
+      }
+
+      .header-right {
+        text-align: right;
+      }
+
+      .live-badge {
+        background: rgba(255,255,255,0.1);
+        color: #7ec8e3;
+        font-size: 11px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+      }
+
+      .time-display {
+        color: #8a9ab5;
+        font-size: 11px;
+        margin-top: 5px;
+      }
+
+      /* ---- GRID LAYOUTS ---- */
+      .grid-top {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .grid-bottom {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+        }
+
+      /* ---- PANEL INSIDE CARDS ---- */
+      .panel {
+        padding: 16px 18px;
+      }
+
+      .panel-title {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #e8c87a;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+
+      /* ---- WEATHER ---- */
+      .weather-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+
+      .weather-icon {
+        font-size: 36px;
+      }
+
+      .weather-temp {
+        font-size: 36px;
+        font-weight: 700;
+        color: #f0e6cc;
+        line-height: 1;
+      }
+
+      .weather-feel {
+        font-size: 12px;
+        color: #8a9ab5;
+        margin-top: 4px;
+      }
+
+      .weather-stats {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .weather-stat {
+        background: rgba(255,255,255,0.07);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 11px;
+        color: #a0b4c8;
+      }
+
+      /* ---- WEATHER EXTRAS ---- */
+.weather-extra {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.weather-row {
+  display: flex;
+  gap: 6px;
+}
+
+.weather-detail {
+  background: rgba(255,255,255,0.07);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #a0b4c8;
+  flex: 1;
+}
+
+.weather-advisory {
+  background: rgba(232, 200, 122, 0.12);
+  border: 1px solid rgba(232, 200, 122, 0.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #e8c87a;
+  margin-top: 8px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.hourly-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9ab5;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.hourly-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hour-item {
+  background: rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  flex-shrink: 0;
+  flex: 1;
+}
+
+.hour-time {
+  font-size: 11px;
+  color: #8a9ab5;
+  margin-bottom: 6px;
+}
+
+.hour-icon {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.hour-temp {
+  font-size: 13px;
+  color: #f0e6cc;
+  font-weight: 600;
+}
+
+      /* ---- TRANSIT ---- */
+      .transit-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+
+      .transit-item:last-child {
+        border-bottom: none;
+      }
+
+      .transit-name {
+        font-size: 12px;
+        color: #c8d8e8;
+      }
+
+      .transit-status {
+        display: flex;
+        align-items: center;
+        font-size: 11px;
+        gap: 5px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .dot-green { background: #4caf82; }
+      .dot-yellow { background: #e8a020; }
+      .dot-red { background: #f08080; }
+
+      .status-ok { color: #4caf82; }
+      .status-warn { color: #e8a020; }
+      .status-bad { color: #f08080; }
+
+      /* ---- EVENTS ---- */
+      .event-item {
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+
+      .event-item:last-child {
+        border-bottom: none;
+      }
+
+      .event-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .event-name {
+        font-size: 13px;
+        color: #f0e6cc;
+        font-weight: 700;
+      }
+
+      .event-time {
+        font-size: 11px;
+        color: #8a9ab5;
+        white-space: nowrap;
+        margin-left: 8px;
+      }
+
+      .event-venue {
+        font-size: 11px;
+        color: #8a9ab5;
+        margin-top: 3px;
+      }
+
+      .impact {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        display: inline-block;
+        margin-top: 5px;
+        font-weight: 600;
+      }
+
+      .impact-high {
+        background: rgba(240, 128, 128, 0.15);
+        color: #f08080;
+      }
+
+      .impact-med {
+        background: rgba(232, 160, 32, 0.15);
+        color: #e8a020;
+      }
+
+      /* ---- MAP ---- */
+      .map-placeholder {
+        background: rgba(0,0,0,0.25);
+        border-radius: 8px;
+        height: 160px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed rgba(255,255,255,0.1);
+      }
+
+      .map-placeholder p {
+        font-size: 12px;
+        color: #8a9ab5;
+        margin-top: 8px;
+      }
+
+      /* ---- ROUTE PLANNER ---- */
+      .route-input {
+        display: block;
+        width: 100%;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #c8d8e8;
+        margin-bottom: 10px;
+        outline: none;
+      }
+
+      .route-input::placeholder {
+        color: #5a7a9a;
+      }
+
+      .route-input:focus {
+        border-color: #e8c87a;
+      }
+
+      .route-btn {
+        width: 100%;
+        background: #e8c87a;
+        color: #0d1b2a;
+        border: none;
+        border-radius: 8px;
+        padding: 11px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        letter-spacing: 0.02em;
+        transition: background 0.2s;
+      }
+
+      .route-btn:hover {
+        background: #f0d898;
+      }
+
+/* ---- MOBILE RESPONSIVE ---- */
+@media (max-width: 1000px) {
+
+  body {
+  background-attachment: scroll;
+}
+
+  .wrapper {
+    padding: 12px;
+  }
+
+  /* Stack top grid vertically */
+  .grid-top {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stack bottom grid vertically */
+  .grid-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  /* Header stacks vertically */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+  }
+
+  /* Smaller title on mobile */
+  .header h1 {
+    font-size: 18px;
+  }
+
+  /* Weather stats wrap */
+  .weather-stats {
+    flex-wrap: wrap;
+  }
+
+  /* Hourly strip scrolls horizontally */
+  .hourly-strip {
+    overflow-x: auto;
+  }
+
+  /* Map full height on mobile */
+  #map {
+    height: 240px !important;
+  }
+
+  /* Route inputs full width */
+  .route-input {
+    font-size: 16px;
+  }
+
+  /* Panel padding smaller */
+  .panel {
+    padding: 12px 14px;
+  }
+
+  /* Transit items smaller text */
+  .transit-name {
+    font-size: 11px;
+  }
+
+  /* Event names smaller */
+  .event-name {
+    font-size: 12px;
+  }
+
+}
+
+/* Google Translate styling */
+#google_translate_element {
+  margin-bottom: 6px;
+}
+
+#google_translate_element .goog-te-gadget-simple {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 8px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+}
+
+#google_translate_element .goog-te-gadget-simple span {
+  color: #f0e6cc !important;
+}
+
+#google_translate_element .goog-te-gadget-simple .goog-te-menu-value span {
+  color: #f0e6cc !important;
+}
+
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
+@media (max-width: 900px) {
+
+  /* ---- MOBILE APP LAYOUT ---- */
+
+  /* Hide desktop grid on mobile */
+  .grid-top,
+  .grid-bottom {
+    display: none !important;
+  }
+
+  /* Show mobile layout */
+  .mobile-app {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+  }
+
+  /* Mobile tab content */
+  .mobile-tab {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .mobile-tab.active {
+    display: block;
+  }
+
+  /* Bottom nav bar */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(10, 25, 50, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.15s;
+    border: none;
+    background: transparent;
+  }
+
+  .mobile-nav-btn.active {
+    background: rgba(232,200,122,0.15);
+  }
+
+  .mobile-nav-icon {
+    font-size: 22px;
+  }
+
+  .mobile-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8a9ab5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mobile-nav-btn.active .mobile-nav-label {
+    color: #e8c87a;
+  }
+
+  /* Mobile card styles */
+  .mobile-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #e8c87a;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .mobile-weather-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 20px;
+    background: rgba(10,25,50,0.55);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .mobile-weather-icon { font-size: 52px; }
+  .mobile-weather-temp { font-size: 52px; font-weight: 700; color: #f0e6cc; line-height: 1; }
+  .mobile-weather-desc { font-size: 14px; color: #8a9ab5; margin-top: 6px; }
+
+  .mobile-weather-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-weather-stat {
+    background: rgba(10,25,50,0.55);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #a0b4c8;
+  }
+
+  .mobile-advisory {
+    background: rgba(232,200,122,0.1);
+    border: 1px solid rgba(232,200,122,0.25);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #e8c87a;
+    font-style: italic;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  .mobile-transit-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(10,25,50,0.55);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-transit-name {
+    font-size: 15px;
+    color: #c8d8e8;
+    font-weight: 500;
+  }
+
+  .mobile-transit-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .mobile-event-card {
+    background: rgba(10,25,50,0.55);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+
+  .mobile-event-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f0e6cc;
+    margin-bottom: 4px;
+  }
+
+  .mobile-event-detail {
+    font-size: 13px;
+    color: #8a9ab5;
+    margin-bottom: 6px;
+  }
+
+  .mobile-map-container {
+    border-radius: 12px;
+    overflow: hidden;
+    height: 300px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .mobile-route-input {
+    display: block;
+    width: 100%;
+    background: rgba(10,25,50,0.55);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 16px;
+    color: #c8d8e8;
+    margin-bottom: 10px;
+    outline: none;
+  }
+
+  .mobile-route-input:focus {
+    border-color: #e8c87a;
+  }
+
+  .mobile-route-btn {
+    width: 100%;
+    background: #e8c87a;
+    color: #0d1b2a;
+    border: none;
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+
+  .mobile-planner-btn {
+    width: 100%;
+    background: rgba(126,200,227,0.15);
+    color: #7ec8e3;
+    border: 1px solid rgba(126,200,227,0.3);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+  }
+
+  /* Hide desktop header elements on mobile */
+  .header-right a {
+    display: none;
+  }
+
+  .live-badge,
+  .time-display {
+    font-size: 12px;
+  }
+
+  /* Add padding for bottom nav */
+  .wrapper {
+    padding-bottom: 80px;
+  }
+
+}
+
+    </style>
+  </head>
+  <body>
+
+    <div class="wrapper">
+
+      <!-- MOBILE APP LAYOUT (hidden on desktop) -->
+      <div class="mobile-app" id="mobileApp" style="display:none">
+
+        <!-- Transit Tab -->
+        <div class="mobile-tab active" id="tab-transit">
+          <div class="mobile-section-title">🚇 Transit Status</div>
+          <div id="mobileTransitList"></div>
+        </div>
+
+        <!-- Weather Tab -->
+        <div class="mobile-tab" id="tab-weather">
+          <div class="mobile-weather-main glass">
+            <div class="mobile-weather-icon" id="mobileWeatherIcon">⏳</div>
+            <div>
+              <div class="mobile-weather-temp" id="mobileWeatherTemp">--°C</div>
+              <div class="mobile-weather-desc" id="mobileWeatherDesc">Loading...</div>
+            </div>
+          </div>
+          <div class="mobile-advisory" id="mobileWeatherAdvisory">Loading advisory...</div>
+          <div class="mobile-weather-stats">
+            <div class="mobile-weather-stat" id="mobileWind">💨 --</div>
+            <div class="mobile-weather-stat" id="mobileHumidity">💧 --</div>
+            <div class="mobile-weather-stat" id="mobileSunrise">🌅 --</div>
+            <div class="mobile-weather-stat" id="mobileSunset">🌇 --</div>
+          </div>
+          <div class="mobile-section-title" style="margin-top:8px">🏙 Vancouver vibes today</div>
+          <div id="mobileVibes"></div>
+        </div>
+
+        <!-- Map Tab -->
+        <div class="mobile-tab" id="tab-map">
+          <div class="mobile-section-title">🗺 Route Planner</div>
+          <div class="mobile-map-container">
+            <div id="mobileMap" style="width:100%;height:100%"></div>
+          </div>
+          <input class="mobile-route-input" id="mobileFromInput" type="text" placeholder="📍 From: Your location" />
+          <input class="mobile-route-input" id="mobileToInput" type="text" placeholder="🏁 To: Destination" />
+          <button class="mobile-route-btn" onclick="findMobileRoute()">Find best route →</button>
+          <div id="mobileRouteSummary"></div>
+          <a href="planner.html" class="mobile-planner-btn">🗓 Open Trip Planner</a>
+        </div>
+
+        <!-- Events Tab -->
+        <div class="mobile-tab" id="tab-events">
+          <div class="mobile-section-title">🎟 Events Today</div>
+          <div id="mobileEventsList"></div>
+          <div class="mobile-section-title" style="margin-top:12px">🏙 Local Vancouver</div>
+          <div id="mobileLocalEvents"></div>
+        </div>
+
+      </div>
+
+      <!-- Bottom Navigation -->
+      <div class="mobile-nav" id="mobileNav" style="display:none">
+        <button class="mobile-nav-btn active" onclick="switchTab('transit', this)">
+          <span class="mobile-nav-icon">🚇</span>
+          <span class="mobile-nav-label">Transit</span>
+        </button>
+        <button class="mobile-nav-btn" onclick="switchTab('weather', this)">
+          <span class="mobile-nav-icon">🌤</span>
+          <span class="mobile-nav-label">Weather</span>
+        </button>
+        <button class="mobile-nav-btn" onclick="switchTab('map', this)">
+          <span class="mobile-nav-icon">🗺</span>
+          <span class="mobile-nav-label">Map</span>
+        </button>
+        <button class="mobile-nav-btn" onclick="switchTab('events', this)">
+          <span class="mobile-nav-icon">🎟</span>
+          <span class="mobile-nav-label">Events</span>
+        </button>
+      </div>
+
+      <!-- Header -->
+        <div class="header glass">
+    <div>
+        <h1>Vancouver Transit</h1>
+        <p>Delays · weather · events · routes</p>
+    </div>
+    <div class="header-right">
+        <div id="google_translate_element"></div>
+        <div class="live-badge">● Live</div>
+        <div class="time-display" id="timeDisplay"></div>
+        <a href="planner.html" style="
+        display: inline-block;
+        margin-top: 8px;
+        background: #e8c87a;
+        color: #0d1b2a;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        ">🗓 Trip Planner</a>
+        <a href="about.html" style="
+          display: inline-block;
+          margin-top: 8px;
+          background: rgba(255,255,255,0.07);
+          color: #f0e6cc;
+          border-radius: 8px;
+          padding: 7px 14px;
+          font-size: 12px;
+          font-weight: 700;
+          text-decoration: none;
+          border: 1px solid rgba(255,255,255,0.15);
+          margin-left: 6px;
+        ">ℹ️ About</a>
+    </div>
+    </div>
+
+      <!-- Top row: Weather · Transit · Events -->
+      <div class="grid-top">
+
+        <div class="panel glass">
+  <div class="panel-title" id="weatherTitle">🌤 Weather — Vancouver</div>
+  <div class="weather-main">
+    <div class="weather-icon" id="weatherIcon">⏳</div>
+    <div>
+      <div class="weather-temp" id="weatherTemp">--°C</div>
+      <div class="weather-feel" id="weatherFeel">Loading...</div>
+    </div>
+  </div>
+  <div class="weather-stats">
+    <div class="weather-stat" id="weatherWind">💨 --</div>
+    <div class="weather-stat" id="weatherHumidity">💧 --</div>
+    <div class="weather-stat" id="weatherVisibility">👁 --</div>
+  </div>
+
+  <!-- New additions -->
+  <div class="weather-extra">
+    <div class="weather-row">
+      <div class="weather-detail" id="weatherRain">🌂 Rain chance: --</div>
+      <div class="weather-detail" id="weatherUV">☀️ UV index: --</div>
+    </div>
+    <div class="weather-row">
+      <div class="weather-detail" id="weatherSunrise">🌅 Sunrise: --</div>
+      <div class="weather-detail" id="weatherSunset">🌇 Sunset: --</div>
+    </div>
+    <div class="weather-advisory" id="weatherAdvisory">Loading advisory...</div>
+  </div>
+
+  <!-- Hourly forecast -->
+  <div class="hourly-title">Today's forecast</div>
+  <div class="hourly-strip" id="hourlyStrip">
+    <div class="hour-item"><div class="hour-time">--</div><div class="hour-icon">⏳</div><div class="hour-temp">--</div></div>
+  </div>
+</div>
+
+        <div class="panel glass">
+    <div class="panel-title">🚇 Transit Status</div>
+    <div id="routeHighlight" style="display:none">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#e8c87a;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:6px;">
+        🔍 On your route
+        </div>
+        <div id="routeLines"></div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#8a9ab5;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,0.08);margin:6px 0;">
+        All lines
+        </div>
+    </div>
+    <div id="transitAlerts">
+        <div class="transit-item">
+        <span class="transit-name">Loading...</span>
+        </div>
+    </div>
+    </div>
+
+        <div class="panel glass">
+            <div class="panel-title">🎟 Events Today</div>
+            <div id="eventsList">
+                <div class="event-item">
+                    <div class="event-name">Loading events...</div>
+                </div>
+            </div>
+            <div id="localEventsList"></div>
+
+        </div>
+
+      </div>
+
+      <!-- Bottom row: Map · Route Planner -->
+      <div class="grid-bottom">
+
+        <div class="panel glass">
+            <div class="panel-title">🗺 Vancouver Transit Map</div>
+            <div id="map" style="
+                width: 100%;
+                height: 320px;
+                border-radius: 8px;
+                overflow: hidden;
+                "></div>
+            </div>
+
+        <div class="panel glass">
+          <div class="panel-title">🧭 Route Planner</div>
+            <input class="route-input" id="fromInput" type="text" placeholder="📍 From: Your location" />
+            <input class="route-input" id="toInput" type="text" placeholder="🏁 To: Destination" />
+          <button class="route-btn" onclick="findRoute()">Find best route →</button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <script>
+      // Set background based on time of day
+      function setTimeOfDay() {
+        const hour = new Date().getHours();
+        const body = document.body;
+
+        // Remove all time classes first
+        body.classList.remove('morning', 'afternoon', 'evening', 'night');
+
+        // Add the right one based on hour
+        if (hour >= 6 && hour < 12) {
+          body.classList.add('morning');
+        } else if (hour >= 12 && hour < 18) {
+          body.classList.add('afternoon');
+        } else if (hour >= 18 && hour < 22) {
+          body.classList.add('evening');
+        } else {
+          body.classList.add('night');
+        }
+      }
+
+      // Show live clock
+      function updateClock() {
+        const now = new Date();
+        const options = {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        };
+        document.getElementById('timeDisplay').textContent =
+          now.toLocaleDateString('en-CA', options);
+      }
+
+      // Fetch real Vancouver weather
+async function getWeather() {
+  const apiKey = '05a37dd24f99d042d5f7892478cd7921';
+  const city = 'Vancouver,CA';
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+  try {
+    // Ask the API for weather data
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Pull out the numbers we need
+    const temp = Math.round(data.main.temp);
+    const feelsLike = Math.round(data.main.feels_like);
+    const humidity = data.main.humidity;
+    const windSpeed = Math.round(data.wind.speed * 3.6);
+    const visibility = Math.round(data.visibility / 1000);
+    const description = data.weather[0].description;
+    const weatherCode = data.weather[0].id;
+
+    // Pick the right emoji based on weather code
+    let icon = '🌤';
+    if (weatherCode >= 200 && weatherCode < 300) icon = '⛈';
+    else if (weatherCode >= 300 && weatherCode < 400) icon = '🌦';
+    else if (weatherCode >= 500 && weatherCode < 600) icon = '🌧';
+    else if (weatherCode >= 600 && weatherCode < 700) icon = '❄️';
+    else if (weatherCode >= 700 && weatherCode < 800) icon = '🌫';
+    else if (weatherCode === 800) icon = '☀️';
+    else if (weatherCode > 800) icon = '☁️';
+
+    // Update the page with real data
+    document.getElementById('weatherIcon').textContent = icon;
+    document.getElementById('weatherTitle').textContent = icon + ' Weather — Vancouver';
+    document.getElementById('weatherTemp').textContent = temp + '°C';
+    document.getElementById('weatherFeel').textContent =
+      'Feels like ' + feelsLike + '°C · ' + description;
+    document.getElementById('weatherWind').textContent = '💨 ' + windSpeed + ' km/h';
+    document.getElementById('weatherHumidity').textContent = '💧 ' + humidity + '%';
+    document.getElementById('weatherVisibility').textContent = '👁 ' + visibility + ' km';
+
+    // Cloud cover (the /weather endpoint does not provide rain probability)
+    const cloudCover = data.clouds?.all || 0;
+    document.getElementById('weatherRain').textContent =
+      '☁️ Cloud cover: ' + cloudCover + '%';
+
+    // Pressure (uvi is not available in the /weather endpoint)
+    const pressure = data.main.pressure;
+    document.getElementById('weatherUV').textContent =
+      '🌡 Pressure: ' + pressure + ' hPa';
+
+    // Sunrise & sunset
+    const sunrise = new Date(data.sys.sunrise * 1000);
+    const sunset = new Date(data.sys.sunset * 1000);
+    const timeOpts = { hour: '2-digit', minute: '2-digit' };
+    document.getElementById('weatherSunrise').textContent =
+      '🌅 Sunrise: ' + sunrise.toLocaleTimeString('en-CA', timeOpts);
+    document.getElementById('weatherSunset').textContent =
+      '🌇 Sunset: ' + sunset.toLocaleTimeString('en-CA', timeOpts);
+
+    const isRaining = weatherCode >= 300 && weatherCode < 600;
+
+    // Smart advisory
+    let advisory = '✅ Looks like a great day for your trip!';
+    if (weatherCode >= 200 && weatherCode < 300) advisory = '⛈ Storm warning — consider rescheduling outdoor plans';
+    else if (weatherCode >= 500 && weatherCode < 600) advisory = '🌂 Bring an umbrella — rain expected today';
+    else if (weatherCode >= 600 && weatherCode < 700) advisory = '❄️ Snow expected — allow extra travel time';
+    else if (windSpeed > 40) advisory = '💨 Very windy today — avoid exposed areas like the seawall';
+    else if (temp <= 0) advisory = '🧊 Freezing temperatures — dress in layers and watch for ice';
+    else if (temp <= 5) advisory = '🧥 Cold day — bundle up for your trip';
+    else if (weatherCode === 800 && temp >= 15) advisory = '😎 Beautiful day — perfect for outdoor stops!';
+    else if (cloudCover > 70) advisory = '☁️ Very cloudy today — light rain is possible, pack an umbrella just in case';
+    document.getElementById('weatherAdvisory').textContent = advisory;
+
+    updateMobileWeather(temp, feelsLike, description, icon, windSpeed, humidity,
+      sunrise.toLocaleTimeString('en-CA', timeOpts),
+      sunset.toLocaleTimeString('en-CA', timeOpts),
+      advisory
+    );
+
+    // Vibe-to-Weather suggestions
+    const suggestions = getVibeSuggestions(weatherCode, temp, isRaining);
+    const existingVibe = document.getElementById('vibeSuggestions');
+    if (existingVibe) existingVibe.remove();
+
+    const vibeDiv = document.createElement('div');
+    vibeDiv.id = 'vibeSuggestions';
+    vibeDiv.style.cssText = `
+      margin-top: 10px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+    `;
+    vibeDiv.innerHTML = `
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8a9ab5;margin-bottom:8px;">
+        🏙 Vancouver vibes today
+      </div>
+      ${suggestions.map(s => `
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:#c8d8e8;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="font-size:16px;flex-shrink:0">${s.icon}</span>
+          <div>
+            <div style="font-weight:600;color:#f0e6cc">${s.name}</div>
+            <div style="font-size:11px;color:#8a9ab5">${s.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+
+    document.getElementById('weatherAdvisory').after(vibeDiv);
+    updateMobileVibes(suggestions);
+
+    // Hourly forecast — fetch real 3-hour interval data from the forecast endpoint
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric&cnt=6`;
+    const forecastRes = await fetch(forecastUrl);
+    const forecastData = await forecastRes.json();
+    const forecastItems = forecastData.list || [];
+
+    document.getElementById('hourlyStrip').innerHTML = forecastItems.map(item => {
+      const itemTime = new Date(item.dt * 1000);
+      const itemTemp = Math.round(item.main.temp);
+      const itemCode = item.weather[0].id;
+      let itemIcon = '🌤';
+      if (itemCode >= 200 && itemCode < 300) itemIcon = '⛈';
+      else if (itemCode >= 300 && itemCode < 400) itemIcon = '🌦';
+      else if (itemCode >= 500 && itemCode < 600) itemIcon = '🌧';
+      else if (itemCode >= 600 && itemCode < 700) itemIcon = '❄️';
+      else if (itemCode >= 700 && itemCode < 800) itemIcon = '🌫';
+      else if (itemCode === 800) itemIcon = '☀️';
+      else if (itemCode > 800) itemIcon = '☁️';
+      return `
+        <div class="hour-item">
+          <div class="hour-time">${itemTime.toLocaleTimeString('en-CA', { hour: '2-digit' })}</div>
+          <div class="hour-icon">${itemIcon}</div>
+          <div class="hour-temp">${itemTemp}°</div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (error) {
+    document.getElementById('weatherTemp').textContent = 'Error';
+    document.getElementById('weatherFeel').textContent = 'Could not load weather';
+  }
+}
+
+// Fetch real TransLink service alerts
+async function getTransitAlerts() {
+  const container = document.getElementById('transitAlerts');
+
+  // TransLink RSS feed via a free RSS-to-JSON converter
+  const rssUrl = 'https://www.translink.ca/about-us/news-and-media/service-alerts';
+  const apiUrl = 'https://api.translink.ca/rttiapi/v1/status?apikey=yBWKp3LASoN15a09zogA';
+
+  try {
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+
+    if (!data || data.length === 0) {
+  showDefaultTransit();
+  return;
+}
+
+let html = '';
+
+data.slice(0, 5).forEach(route => {
+  const name = route.Name || 'Route';
+  const status = route.Status || 'Normal';
+  const isDelay = status.toLowerCase() !== 'normal';
+
+  const dotClass = isDelay ? 'dot-yellow' : 'dot-green';
+  const statusClass = isDelay ? 'status-warn' : 'status-ok';
+
+  html += `
+    <div class="transit-item">
+      <span class="transit-name">${name}</span>
+      <span class="transit-status ${statusClass}">
+        <span class="dot ${dotClass}"></span>${status}
+      </span>
+    </div>
+  `;
+});
+
+container.innerHTML = html;
+
+  } catch (error) {
+  showDefaultTransit();
+}
+} 
+
+function showDefaultTransit() {
+  const lines = [
+    { name: '🚇 Expo Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'expo' },
+    { name: '🚇 Canada Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'canada' },
+    { name: '🚇 Millennium Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'millennium' },
+    { name: '🚇 Evergreen Ext.', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'evergreen' },
+    { name: '🚌 Bus 99 B-Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: '99' },
+    { name: '🚌 R4 B-Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'r4' },
+    { name: '🚌 R5 B-Line', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'r5' },
+    { name: '🚌 Bus 49', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: '49' },
+    { name: '🚌 Bus 25', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: '25' },
+    { name: '⛴ SeaBus', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'seabus' },
+    { name: '🚡 West Coast Express', status: 'Normal', dot: 'dot-green', cls: 'status-ok', id: 'wce' },
+  ];
+
+  window.allTransitLines = lines;
+
+  document.getElementById('transitAlerts').innerHTML = lines.map(line => `
+    <div class="transit-item" id="line-${line.id}">
+      <span class="transit-name">${line.name}</span>
+      <span class="transit-status ${line.cls}">
+        <span class="dot ${line.dot}"></span>${line.status}
+      </span>
+    </div>
+  `).join('');
+
+  updateMobileTransit(lines);
+}
+
+async function getEvents() {
+  const apiKey = '3GffF99K4HiuYx8iI6v5w7AV62VyJvgL';
+  const url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=Vancouver&countryCode=CA&size=5&sort=date,asc`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const events = data._embedded?.events?.filter(event => {
+  const segment = event.classifications?.[0]?.segment?.name || '';
+  const name = event.name.toLowerCase();
+  const blockedWords = [
+    'admin', 'food & beverage', 'parking', 'vip',
+    'hospitality', 'encore guest pass', 'premium seating',
+    'tracking', 'box office'
+  ];
+  const isBlocked = blockedWords.some(word => name.includes(word));
+  const isValidSegment = ['Music', 'Sports', 'Arts & Theatre', 'Family', 'Film'].includes(segment);
+  return !isBlocked && isValidSegment;
+});
+
+    if (!events || events.length === 0) {
+      document.getElementById('eventsList').innerHTML = `
+        <div class="event-item">
+          <div class="event-name">No events found today</div>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+
+    events.forEach(event => {
+      const name = event.name;
+      const venue = event.venues?.[0]?.name || event._embedded?.venues?.[0]?.name || 'Vancouver';
+      const date = new Date(event.dates.start.dateTime || event.dates.start.localDate);
+      const time = event.dates.start.noSpecificTime ? 'TBA' :
+        date.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' });
+
+      const segment = event.classifications?.[0]?.segment?.name || '';
+      let icon = '🎟';
+      if (segment === 'Sports') icon = '🏆';
+      else if (segment === 'Music') icon = '🎵';
+      else if (segment === 'Arts & Theatre') icon = '🎭';
+
+      const isHighImpact = ['Rogers Arena', 'BC Place'].some(v =>
+        venue.toLowerCase().includes(v.toLowerCase())
+      );
+
+      html += `
+        <div class="event-item">
+          <div class="event-top">
+            <div class="event-name">${icon} ${name}</div>
+            <div class="event-time">${time}</div>
+          </div>
+          <div class="event-venue">${venue}</div>
+          <span class="impact ${isHighImpact ? 'impact-high' : 'impact-med'}">
+            ${isHighImpact ? 'High transit impact' : 'Medium impact'}
+          </span>
+        </div>
+      `;
+    });
+
+    document.getElementById('eventsList').innerHTML = html;
+    updateMobileEvents(html);
+
+  } catch (error) {
+    document.getElementById('eventsList').innerHTML = `
+      <div class="event-item">
+        <div class="event-name">Could not load events</div>
+      </div>
+    `;
+  }
+}
+
+let directionsService;
+let directionsRenderer;
+
+function initMap() {
+  const vancouver = { lat: 49.2827, lng: -123.1207 };
+
+  const map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 12,
+    center: vancouver,
+    styles: [
+      { elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#8a9ab5' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#0d1b2a' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a3a5a' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1e4a7a' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e8c87a' }] },
+      { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#e8c87a' }] }
+    ],
+    disableDefaultUI: true,
+    zoomControl: true,
+  });
+
+  // Directions setup
+  directionsService = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map: map,
+    polylineOptions: { strokeColor: '#e8c87a', strokeWeight: 4 },
+    suppressMarkers: false,
+  });
+
+  // Transit hub markers
+  const hubs = [
+    { name: 'Waterfront Station', pos: { lat: 49.2850, lng: -123.1117 }, icon: '🚇' },
+    { name: 'Vancouver City Centre', pos: { lat: 49.2827, lng: -123.1207 }, icon: '🚇' },
+    { name: 'Broadway-City Hall', pos: { lat: 49.2632, lng: -123.1139 }, icon: '🚇' },
+    { name: 'Commercial-Broadway', pos: { lat: 49.2631, lng: -123.0694 }, icon: '🚇' },
+    { name: 'SFU', pos: { lat: 49.2781, lng: -122.9199 }, icon: '🎓' },
+    { name: 'UBC', pos: { lat: 49.2606, lng: -123.2460 }, icon: '🎓' },
+    { name: 'Rogers Arena', pos: { lat: 49.2779, lng: -123.1088 }, icon: '🏒' },
+    { name: 'BC Place', pos: { lat: 49.2775, lng: -123.1116 }, icon: '⚽' },
+  ];
+
+  hubs.forEach(hub => {
+    const marker = new google.maps.Marker({
+      position: hub.pos,
+      map: map,
+      title: hub.name,
+      label: { text: hub.icon, fontSize: '16px' }
+    });
+    const infoWindow = new google.maps.InfoWindow({
+      content: `<div style="background:#0d1b2a;color:#f0e6cc;padding:8px 12px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;font-weight:600;">${hub.name}</div>`
+    });
+    marker.addListener('click', () => infoWindow.open(map, marker));
+  });
+
+  // Store map globally so findRoute can use it
+  window.mainMap = map;
+}
+
+// Autocomplete for route inputs
+const fromAuto = new google.maps.places.Autocomplete(
+  document.getElementById('fromInput'), {
+    componentRestrictions: { country: 'ca' },
+    bounds: new google.maps.LatLngBounds(
+      { lat: 49.0, lng: -123.5 },
+      { lat: 49.5, lng: -122.5 }
+    ),
+    strictBounds: false
+  }
+);
+
+const toAuto = new google.maps.places.Autocomplete(
+  document.getElementById('toInput'), {
+    componentRestrictions: { country: 'ca' },
+    bounds: new google.maps.LatLngBounds(
+      { lat: 49.0, lng: -123.5 },
+      { lat: 49.5, lng: -122.5 }
+    ),
+    strictBounds: false
+  }
+);
+
+function findRoute() {
+  const from = document.getElementById('fromInput').value.trim();
+  const to = document.getElementById('toInput').value.trim();
+
+  if (!from || !to) {
+    alert('Please enter both a starting point and destination!');
+    return;
+  }
+
+  const btn = document.querySelector('.route-btn');
+  btn.textContent = 'Finding route...';
+  btn.disabled = true;
+
+  directionsService.route({
+    origin: from,
+    destination: to,
+    travelMode: google.maps.TravelMode.TRANSIT,
+    transitOptions: {
+      departureTime: new Date(),
+      modes: [
+        google.maps.TransitMode.BUS,
+        google.maps.TransitMode.RAIL,
+        google.maps.TransitMode.SUBWAY
+      ]
+    }
+  }, (result, status) => {
+    btn.textContent = 'Find best route →';
+    btn.disabled = false;
+
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+
+      // Show route summary
+      const leg = result.routes[0].legs[0];
+      const steps = leg.steps;
+
+      // Pin transit stops used on the map
+      steps.forEach(step => {
+        if (step.travel_mode === 'TRANSIT') {
+          const departure = step.transit?.departure_stop;
+          const arrival = step.transit?.arrival_stop;
+          const line = step.transit?.line?.short_name || '';
+          const type = step.transit?.line?.vehicle?.type || '';
+
+          let icon = '🚌';
+          if (type === 'SUBWAY' || type === 'HEAVY_RAIL') icon = '🚇';
+          else if (type === 'FERRY') icon = '⛴';
+
+          if (departure) {
+            new google.maps.Marker({
+              position: departure.location,
+              map: window.mainMap,
+              title: departure.name + ' — Board ' + line,
+              label: { text: icon, fontSize: '16px' },
+              zIndex: 999
+            });
+          }
+
+          if (arrival) {
+            new google.maps.Marker({
+              position: arrival.location,
+              map: window.mainMap,
+              title: arrival.name + ' — Alight ' + line,
+              label: { text: '📍', fontSize: '16px' },
+              zIndex: 999
+            });
+          }
+        }
+      });
+
+      let summaryHtml = `
+        <div style="margin-top:10px; font-size:12px; color:#c8d8e8; line-height:1.8;">
+          <div style="color:#e8c87a; font-weight:700; margin-bottom:6px;">
+            🚌 ${leg.duration.text} · ${leg.distance.text}
+          </div>
+      `;
+
+      steps.forEach(step => {
+        const mode = step.travel_mode;
+        let icon = '🚶';
+        if (mode === 'TRANSIT') {
+          const type = step.transit?.line?.vehicle?.type;
+          if (type === 'BUS') icon = '🚌';
+          else if (type === 'SUBWAY' || type === 'HEAVY_RAIL') icon = '🚇';
+          else if (type === 'TRAM') icon = '🚊';
+          const line = step.transit?.line?.short_name || step.transit?.line?.name || '';
+          summaryHtml += `<div>${icon} ${step.instructions} ${line ? '(' + line + ')' : ''} · ${step.duration.text}</div>`;
+        } else {
+          summaryHtml += `<div>${icon} ${step.instructions} · ${step.duration.text}</div>`;
+        }
+      });
+
+      summaryHtml += '</div>';
+
+      // Show below the button
+      const existing = document.getElementById('routeSummary');
+      if (existing) existing.remove();
+      const div = document.createElement('div');
+      div.id = 'routeSummary';
+      div.innerHTML = summaryHtml;
+      document.querySelector('.route-btn').after(div);
+
+      predictDelay(steps, leg);
+      
+    } else if (status === 'ZERO_RESULTS') {
+      alert('No transit route found. Try different locations!');
+    } else {
+      alert('Could not find route: ' + status);
+    }
+  });
+}
+
+function predictDelay(steps, leg) {
+  const hour = new Date().getHours();
+  const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
+  const isRaining = document.getElementById('weatherFeel')
+    ?.textContent?.toLowerCase().includes('rain');
+  const isSnowing = document.getElementById('weatherFeel')
+    ?.textContent?.toLowerCase().includes('snow');
+
+  // Check if any events are near route endpoints
+  const hasHighImpactEvent = document.querySelector('.impact-high') !== null;
+
+  let riskScore = 0;
+  let reasons = [];
+
+  if (isRushHour) { riskScore += 2; reasons.push('rush hour'); }
+  if (isRaining) { riskScore += 1; reasons.push('rain'); }
+  if (isSnowing) { riskScore += 3; reasons.push('snow'); }
+  if (hasHighImpactEvent) { riskScore += 2; reasons.push('major event nearby'); }
+
+  // Check number of transit transfers
+  const transfers = steps.filter(s => s.travel_mode === 'TRANSIT').length;
+  if (transfers > 2) { riskScore += 1; reasons.push('multiple transfers'); }
+
+  let badge, color, bgColor;
+  if (riskScore === 0) {
+    badge = '🟢 Low delay risk';
+    color = '#4caf82';
+    bgColor = 'rgba(76,175,130,0.15)';
+  } else if (riskScore <= 2) {
+    badge = '🟡 Moderate delay risk';
+    color = '#e8a020';
+    bgColor = 'rgba(232,160,32,0.15)';
+  } else {
+    badge = '🔴 High delay risk';
+    color = '#f08080';
+    bgColor = 'rgba(240,128,128,0.15)';
+  }
+
+  const reasonText = reasons.length > 0 ? ' — ' + reasons.join(', ') : '';
+
+  // Remove existing prediction
+  const existing = document.getElementById('delayPrediction');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'delayPrediction';
+  div.innerHTML = `
+    <div style="
+      background: ${bgColor};
+      border: 1px solid ${color};
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: ${color};
+      margin-top: 10px;
+      font-weight: 600;
+    ">
+      ${badge}${reasonText}
+    </div>
+    <div style="font-size:11px; color:#8a9ab5; margin-top:5px; padding: 0 2px;">
+      Based on current weather, time of day, and nearby events
+    </div>
+  `;
+
+  document.getElementById('routeSummary')?.after(div);
+}
+
+      function getVibeSuggestions(code, temp, isRaining) {
+        // Classic Vancouver rain (most common)
+        if (isRaining || (code >= 300 && code < 600)) {
+          return [
+            { icon: '📚', name: 'Vancouver Public Library', desc: 'Central Branch · Georgia St · Free WiFi · open til 9pm' },
+            { icon: '☕', name: 'Kafka\'s Coffee', desc: 'Main St · cozy study spot · great for rainy days' },
+            { icon: '🎨', name: 'Vancouver Art Gallery', desc: 'Free on Tuesdays · Robson St · perfect rainy day activity' },
+            { icon: '🍜', name: 'Chinatown eats', desc: 'Pho Bich Nga or New Town Bakery · warm up inside' },
+          ];
+        }
+
+        // Cold but dry
+        if (temp <= 5 && code === 800) {
+          return [
+            { icon: '🌁', name: 'Cypress Mountain lookout', desc: 'Clear cold days = best city views · free to drive up' },
+            { icon: '🚶', name: 'Seawall walk', desc: 'Coal Harbour to Granville Island · crisp air · worth it' },
+            { icon: '☕', name: 'Revolver Coffee', desc: 'Cambie St · best espresso in the city · warm up inside' },
+            { icon: '🏛', name: 'Museum of Anthropology', desc: 'UBC · free on Tuesdays · stunning views of mountains' },
+          ];
+        }
+
+        // Sunny and warm (rare Vancouver moment)
+        if (code === 800 && temp >= 15) {
+          return [
+            { icon: '🏖', name: 'Kitsilano Beach', desc: 'Best beach in Vancouver · bring a frisbee · free' },
+            { icon: '🌿', name: 'Queen Elizabeth Park', desc: 'Bloedel Conservatory · best city views on clear days' },
+            { icon: '🚴', name: 'Seawall bike ride', desc: 'Rent from Mobi · Stanley Park to False Creek · iconic' },
+            { icon: '🍦', name: 'Rain or Shine Ice Cream', desc: '4th Ave Kitsilano · best ice cream in the city' },
+          ];
+        }
+
+        // Overcast / cloudy
+        if (code > 800) {
+          return [
+            { icon: '🎭', name: 'Granville Island', desc: 'Public Market · artisan shops · good in any weather' },
+            { icon: '📖', name: 'Macleod\'s Books', desc: 'Pender St · best used bookstore in Vancouver' },
+            { icon: '🎮', name: 'Playdium Burnaby', desc: 'SkyTrain to Metrotown · arcade & games' },
+            { icon: '🌿', name: 'Bloedel Conservatory', desc: 'Queen Elizabeth Park · tropical birds indoors · $7' },
+          ];
+        }
+
+        // Snowy (rare but happens)
+        if (code >= 600 && code < 700) {
+          return [
+            { icon: '⛷', name: 'Grouse Mountain', desc: 'Take the gondola · skiing + snowshoeing · 30 mins from downtown' },
+            { icon: '🍵', name: 'Tao Tea Leaf', desc: 'Alberni St · cozy tea house · perfect snow day vibes' },
+            { icon: '📺', name: 'Stay in & order ramen', desc: 'Kintaro Ramen · Denman St · best in the city' },
+            { icon: '🏠', name: 'Commercial Drive cafes', desc: 'The Drive is walkable · grab coffee · browse local shops' },
+          ];
+        }
+
+        // Default
+        return [
+          { icon: '🌊', name: 'Seawall walk', desc: 'Stanley Park to False Creek · always worth it' },
+          { icon: '🎨', name: 'Granville Island', desc: 'Public Market + local art · uniquely Vancouver' },
+          { icon: '☕', name: 'Cafe crawl on Main St', desc: 'Matchstick · 49th Parallel · Prado · all within walking distance' },
+        ];
+      }
+
+      function loadLocalEvents() {
+        const hour = new Date().getHours();
+        const month = new Date().getMonth();
+        const day = new Date().getDay();
+
+        const localEvents = [];
+
+        // UBC & SFU events (always relevant for students)
+        localEvents.push({
+          icon: '🎓',
+          name: 'UBC Free Museum Tuesday',
+          desc: hour < 17 ? 'Museum of Anthropology · Free today til 5pm' : 'Closed for today',
+          tag: 'Free',
+          tagColor: '#4caf82',
+          active: new Date().getDay() === 2
+        });
+
+        // Farmers markets by season
+        if (month >= 4 && month <= 10) {
+          if (day === 6) {
+            localEvents.push({
+              icon: '🥦',
+              name: 'Kitsilano Farmers Market',
+              desc: 'Every Saturday · Creelman Ave · 10am–3pm',
+              tag: 'Free',
+              tagColor: '#4caf82',
+              active: true
+            });
+          }
+          if (day === 3) {
+            localEvents.push({
+              icon: '🥦',
+              name: 'Trout Lake Farmers Market',
+              desc: 'Every Wednesday · John Hendry Park · 3pm–7pm',
+              tag: 'Free',
+              tagColor: '#4caf82',
+              active: true
+            });
+          }
+        }
+
+        // Weekly community events
+        if (day === 5 || day === 6) {
+          localEvents.push({
+            icon: '🎨',
+            name: 'Commercial Drive art walk',
+            desc: 'Local galleries open late · The Drive · Fri & Sat evenings',
+            tag: 'Free',
+            tagColor: '#4caf82',
+            active: true
+          });
+        }
+
+        // Permanent Vancouver gems always worth knowing
+        localEvents.push({
+          icon: '👀',
+          name: 'People watching: Granville Island',
+          desc: 'Public Market buskers · best people watching in Vancouver',
+          tag: 'Always on',
+          tagColor: '#7ec8e3',
+          active: true
+        });
+
+        localEvents.push({
+          icon: '🌿',
+          name: 'Free nature: Lynn Canyon',
+          desc: 'Free suspension bridge · North Van · 30 mins on transit',
+          tag: 'Free',
+          tagColor: '#4caf82',
+          active: true
+        });
+
+        const activeEvents = localEvents.filter(e => e.active);
+        if (activeEvents.length === 0) return;
+
+        const container = document.getElementById('localEventsList');
+        if (!container) return;
+
+        container.innerHTML = `
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8a9ab5;padding:8px 0 6px;border-top:1px solid rgba(255,255,255,0.06);margin-top:6px;">
+            🏙 Local Vancouver
+          </div>
+          ${activeEvents.map(e => `
+            <div class="event-item">
+              <div class="event-top">
+                <div class="event-name">${e.icon} ${e.name}</div>
+                <span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(76,175,130,0.15);color:${e.tagColor};font-weight:600;white-space:nowrap;margin-left:8px">${e.tag}</span>
+              </div>
+              <div class="event-venue">${e.desc}</div>
+            </div>
+          `).join('')}
+        `;
+        updateMobileEvents(null, container.innerHTML);
+      }
+
+      function isMobile() {
+        return window.innerWidth <= 900;
+      }
+
+      function switchTab(tab, btn) {
+        document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+        btn.classList.add('active');
+
+        if (tab === 'map' && !window.mobileMapInitialized) {
+          initMobileMap();
+          window.mobileMapInitialized = true;
+        }
+      }
+
+      function setupMobileLayout() {
+        if (!isMobile()) return;
+        document.getElementById('mobileApp').style.display = 'flex';
+        document.getElementById('mobileNav').style.display = 'flex';
+      }
+
+      function updateMobileWeather(temp, feelsLike, desc, icon, windSpeed, humidity, sunrise, sunset, advisory) {
+        if (!isMobile()) return;
+        document.getElementById('mobileWeatherIcon').textContent = icon;
+        document.getElementById('mobileWeatherTemp').textContent = temp + '°C';
+        document.getElementById('mobileWeatherDesc').textContent = 'Feels like ' + feelsLike + '°C · ' + desc;
+        document.getElementById('mobileWeatherAdvisory').textContent = advisory;
+        document.getElementById('mobileWind').textContent = '💨 ' + windSpeed + ' km/h';
+        document.getElementById('mobileHumidity').textContent = '💧 ' + humidity + '%';
+        document.getElementById('mobileSunrise').textContent = '🌅 ' + sunrise;
+        document.getElementById('mobileSunset').textContent = '🌇 ' + sunset;
+      }
+
+      function updateMobileTransit(lines) {
+        if (!isMobile()) return;
+        document.getElementById('mobileTransitList').innerHTML = lines.map(line => `
+          <div class="mobile-transit-item glass">
+            <span class="mobile-transit-name">${line.name}</span>
+            <span class="mobile-transit-status ${line.cls}">
+              <span class="dot ${line.dot}"></span>${line.status}
+            </span>
+          </div>
+        `).join('');
+      }
+
+      function updateMobileEvents(eventsHtml, localHtml) {
+        if (!isMobile()) return;
+        const el = document.getElementById('mobileEventsList');
+        const localEl = document.getElementById('mobileLocalEvents');
+        if (el) el.innerHTML = eventsHtml || '<div style="color:#5a7a9a;font-size:14px;padding:16px 0">No major events today</div>';
+        if (localEl && localHtml) localEl.innerHTML = localHtml;
+      }
+
+      function updateMobileVibes(suggestions) {
+        if (!isMobile()) return;
+        const el = document.getElementById('mobileVibes');
+        if (!el) return;
+        el.innerHTML = suggestions.map(s => `
+          <div style="
+            background:rgba(10,25,50,0.55);
+            backdrop-filter:blur(12px);
+            border:1px solid rgba(255,255,255,0.1);
+            border-radius:10px;
+            padding:14px 16px;
+            margin-bottom:8px;
+            display:flex;
+            gap:12px;
+            align-items:center;
+          ">
+            <span style="font-size:28px;flex-shrink:0">${s.icon}</span>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:#f0e6cc">${s.name}</div>
+              <div style="font-size:12px;color:#8a9ab5;margin-top:3px">${s.desc}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      let mobileMap = null;
+      let mobileDirService = null;
+      let mobileDirRenderer = null;
+
+      function initMobileMap() {
+        const vancouver = { lat: 49.2827, lng: -123.1207 };
+        mobileMap = new google.maps.Map(document.getElementById('mobileMap'), {
+          zoom: 12,
+          center: vancouver,
+          styles: [
+            { elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: '#8a9ab5' }] },
+            { elementType: 'labels.text.stroke', stylers: [{ color: '#0d1b2a' }] },
+            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a3a5a' }] },
+            { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e8c87a' }] }
+          ],
+          disableDefaultUI: true,
+          zoomControl: true,
+        });
+
+        mobileDirService = new google.maps.DirectionsService();
+        mobileDirRenderer = new google.maps.DirectionsRenderer({
+          map: mobileMap,
+          polylineOptions: { strokeColor: '#e8c87a', strokeWeight: 4 },
+          suppressMarkers: false
+        });
+
+        const vanBounds = new google.maps.LatLngBounds(
+          { lat: 49.0, lng: -123.5 },
+          { lat: 49.5, lng: -122.5 }
+        );
+        new google.maps.places.Autocomplete(
+          document.getElementById('mobileFromInput'), {
+            componentRestrictions: { country: 'ca' },
+            bounds: vanBounds
+          }
+        );
+        new google.maps.places.Autocomplete(
+          document.getElementById('mobileToInput'), {
+            componentRestrictions: { country: 'ca' },
+            bounds: vanBounds
+          }
+        );
+      }
+
+      function findMobileRoute() {
+        const from = document.getElementById('mobileFromInput').value.trim();
+        const to = document.getElementById('mobileToInput').value.trim();
+        if (!from || !to) return;
+
+        const btn = document.querySelector('.mobile-route-btn');
+        btn.textContent = 'Finding route...';
+        btn.disabled = true;
+
+        mobileDirService.route({
+          origin: from + ', Vancouver, BC',
+          destination: to + ', Vancouver, BC',
+          travelMode: google.maps.TravelMode.TRANSIT,
+          transitOptions: { departureTime: new Date() }
+        }, (result, status) => {
+          btn.textContent = 'Find best route →';
+          btn.disabled = false;
+
+          if (status !== 'OK') {
+            document.getElementById('mobileRouteSummary').innerHTML =
+              '<div style="color:#f08080;font-size:13px;padding:10px 0">No route found. Try different locations.</div>';
+            return;
+          }
+
+          mobileDirRenderer.setDirections(result);
+          const leg = result.routes[0].legs[0];
+          const steps = result.routes[0].legs[0].steps;
+
+          const transitLines = steps
+            .filter(s => s.travel_mode === 'TRANSIT')
+            .map(s => s.transit?.line?.short_name || s.transit?.line?.name || '')
+            .filter(Boolean);
+
+          document.getElementById('mobileRouteSummary').innerHTML = `
+            <div style="
+              background:rgba(232,200,122,0.1);
+              border:1px solid rgba(232,200,122,0.3);
+              border-radius:10px;
+              padding:14px 16px;
+              font-size:14px;
+              color:#e8c87a;
+              margin-bottom:10px;
+            ">
+              <div style="font-weight:700;margin-bottom:4px">
+                🚌 ${transitLines.join(' → ') || 'Transit'} · ${leg.duration.text}
+              </div>
+              <div style="font-size:12px;color:#a0b4c8">${leg.distance.text} · ${leg.start_address.split(',')[0]} → ${leg.end_address.split(',')[0]}</div>
+            </div>
+          `;
+        });
+      }
+
+      // Run on load
+      setTimeOfDay();
+      updateClock();
+      getWeather();
+      getTransitAlerts();
+      getEvents();
+      initMap();
+      loadLocalEvents();
+      setupMobileLayout();
+      setInterval(updateClock, 60000);
+
+      // Update clock every minute
+    </script>
+
+  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  <script>
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'en',
+      includedLanguages: 'fr,zh-CN,zh-TW,ja,ko,vi,tl,pa,es,fa',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+      autoDisplay: false
+    }, 'google_translate_element');
+  }
+  </script>
+  </body>
+</html>

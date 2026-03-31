@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDi5CAFsVRx-GgLckskzAIoIoCULIACt6E&libraries=places"></script>
+  <title>Vancouver Trip Planner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #0d1b2a; color: #f0e6cc; min-height: 100vh; }
+    body.night { background-image: url('night.avif'); background-size: cover; background-position: center; background-attachment: fixed; }
+    body.morning { background-image: url('morning.avif'); background-size: cover; background-position: center; background-attachment: fixed; }
+    body.afternoon { background-image: url('afternoon.avif'); background-size: cover; background-position: center; background-attachment: fixed; }
+    body.evening { background-image: url('evening.avif'); background-size: cover; background-position: center; background-attachment: fixed; }
+    body::before { content: ''; position: fixed; inset: 0; background: rgba(5,15,30,0.55); z-index: 0; }
+    .wrapper { position: relative; z-index: 1; padding: 20px; max-width: 1000px; margin: 0 auto; }
+    .glass { background: rgba(10,25,50,0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; }
+    .header { padding: 20px 28px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e8c87a; }
+    .header h1 { font-family: Arial, sans-serif; color: #f0e6cc; font-size: 22px; }
+    .header p { color: #8a9ab5; font-size: 12px; margin-top: 4px; font-style: italic; }
+    .back-btn { background: rgba(255,255,255,0.07); color: #f0e6cc; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s; }
+    .back-btn:hover { background: rgba(255,255,255,0.12); }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .month-title { font-size: 18px; font-weight: 700; color: #f0e6cc; }
+    .nav-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #f0e6cc; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+    .nav-btn:hover { background: rgba(255,255,255,0.15); }
+    .calendar-grid { padding: 16px; }
+    .day-headers { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+    .day-header { text-align: center; font-size: 11px; font-weight: 700; color: #8a9ab5; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 0; }
+    .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .day-cell { aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; padding: 4px; }
+    .day-cell:hover { background: rgba(232,200,122,0.15); border-color: rgba(232,200,122,0.3); }
+    .day-cell.today { background: rgba(232,200,122,0.2); border-color: #e8c87a; }
+    .day-cell.empty { cursor: default; pointer-events: none; }
+    .day-cell.has-plan { background: rgba(76,175,130,0.15); border-color: rgba(76,175,130,0.4); }
+    .day-number { font-size: 14px; font-weight: 500; color: #f0e6cc; }
+    .day-cell.today .day-number { color: #e8c87a; font-weight: 700; }
+    .day-dot { width: 5px; height: 5px; border-radius: 50%; background: #4caf82; margin-top: 3px; }
+    .day-view { display: none; }
+    .day-view.show { display: block; }
+    .calendar-view { display: block; }
+    .calendar-view.hide { display: none; }
+    .day-view-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .day-view-title { font-size: 18px; font-weight: 700; color: #f0e6cc; }
+    .day-view-sub { font-size: 12px; color: #8a9ab5; margin-top: 3px; }
+    .day-content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .day-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #e8c87a; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .day-weather { display: flex; align-items: center; gap: 12px; }
+    .day-weather-icon { font-size: 28px; }
+    .day-weather-temp { font-size: 24px; font-weight: 700; color: #f0e6cc; }
+    .day-weather-desc { font-size: 12px; color: #8a9ab5; margin-top: 2px; }
+    .stops-list { display: flex; flex-direction: column; gap: 8px; }
+    .stop-item { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 6px; }
+    .stop-item-top { display: flex; align-items: center; gap: 10px; }
+    .stop-item-details { margin-top: 8px; padding-left: 38px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .stop-detail-badge { background: rgba(255,255,255,0.07); border-radius: 6px; padding: 3px 10px; font-size: 11px; color: #a0b4c8; display: flex; align-items: center; gap: 4px; }
+    .stop-actions { display: flex; gap: 6px; margin-left: auto; }
+    .stop-edit { background: rgba(232,200,122,0.15); border: none; color: #e8c87a; border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+    .stop-remove { background: rgba(240,128,128,0.15); border: none; color: #f08080; border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+    .stop-number { width: 28px; height: 28px; border-radius: 50%; background: #e8c87a; color: #0d1b2a; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+    .stop-info { flex: 1; }
+    .stop-name { font-size: 13px; color: #f0e6cc; font-weight: 600; }
+    .stop-time { font-size: 11px; color: #8a9ab5; margin-top: 2px; }
+    .time-group { display: flex; flex-direction: column; gap: 3px; }
+    .time-label { font-size: 10px; color: #8a9ab5; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .edit-mode { border-color: #e8c87a !important; background: rgba(232,200,122,0.08) !important; }
+    .add-stop-form { margin-top: 4px; }
+    .stop-form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .stop-form-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 100px; }
+    .stop-input { flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: #f0e6cc; outline: none; min-width: 140px; }
+    .stop-input::placeholder { color: #5a7a9a; }
+    .stop-input:focus { border-color: #e8c87a; }
+    .time-input { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: #f0e6cc; outline: none; width: 120px; }
+    .time-input:focus { border-color: #e8c87a; }
+    .add-btn { background: #e8c87a; color: #0d1b2a; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+    .add-btn:hover { background: #f0d898; }
+    .notes-input { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #f0e6cc; outline: none; resize: vertical; min-height: 80px; font-family: Arial, sans-serif; line-height: 1.5; }
+    .notes-input::placeholder { color: #5a7a9a; }
+    .notes-input:focus { border-color: #e8c87a; }
+    .save-btn { background: #e8c87a; color: #0d1b2a; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+    .save-btn:hover { background: #f0d898; }
+    .saved-msg { font-size: 12px; color: #4caf82; margin-top: 6px; display: none; }
+    .reminder-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+    .reminder-label { font-size: 12px; color: #8a9ab5; }
+    .reminder-btn { background: rgba(76,175,130,0.15); border: 1px solid rgba(76,175,130,0.3); color: #4caf82; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: background 0.2s; }
+    .reminder-btn:hover { background: rgba(76,175,130,0.25); }
+    
+    .week-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    }
+
+    .week-day-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 14px 18px;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    }
+
+    .week-day-card:hover { background: rgba(232,200,122,0.15); border-color: rgba(232,200,122,0.3); }
+    .week-day-card.today { border-color: #e8c87a; background: rgba(232,200,122,0.1); }
+    .week-day-card.has-plan { border-color: rgba(76,175,130,0.4); background: rgba(76,175,130,0.08); }
+    
+    .week-day-name {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8a9ab5;
+    width: 36px;
+    }
+
+    .week-day-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f0e6cc;
+    width: 40px;
+    }
+
+    .week-day-card.today .week-day-num {
+    color: #e8c87a;
+    }
+
+    .week-plan-preview {
+    font-size: 12px;
+    color: #4caf82;
+    line-height: 1.6;
+    flex: 1;
+    }
+
+    .week-no-plan {
+    font-size: 12px;
+    color: #3a4a5a;
+    flex: 1;
+    }
+    
+    .day-briefing {
+  padding: 16px 20px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.briefing-date {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f0e6cc;
+  margin-bottom: 2px;
+}
+
+.briefing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c8d8e8;
+}
+
+.briefing-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.briefing-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9ab5;
+}
+
+.briefing-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+.briefing-advisory {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: none;
+}
+
+.briefing-advisory.high {
+  background: rgba(240,128,128,0.15);
+  color: #f08080;
+  display: block;
+}
+
+.briefing-advisory.medium {
+  background: rgba(232,160,32,0.15);
+  color: #e8a020;
+  display: block;
+}
+
+.briefing-advisory.low {
+  background: rgba(76,175,130,0.15);
+  color: #4caf82;
+  display: block;
+}
+
+.briefing-event-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #c8d8e8;
+  padding: 4px 0;
+}
+
+.briefing-event-time {
+  font-size: 11px;
+  color: #8a9ab5;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+  .direction-leg {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .direction-leg-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e8c87a;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .direction-step {
+    font-size: 11px;
+    color: #a0b4c8;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .direction-step:last-child {
+    border-bottom: none;
+  }
+
+  /* Google Translate styling */
+  #google_translate_element { margin-bottom: 6px; }
+  #google_translate_element .goog-te-gadget-simple { background: rgba(255,255,255,0.07) !important; border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 8px !important; padding: 4px 10px !important; font-size: 12px !important; }
+  #google_translate_element .goog-te-gadget-simple span { color: #f0e6cc !important; }
+  #google_translate_element .goog-te-gadget-simple .goog-te-menu-value span { color: #f0e6cc !important; }
+  .goog-te-banner-frame { display: none !important; }
+  body { top: 0 !important; }
+
+  .generate-trip-section {
+    background: rgba(232,200,122,0.05);
+    border: 1px solid rgba(232,200,122,0.2);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .generate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .gen-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .gen-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .vibe-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .vibe-chip {
+    padding: 5px 12px;
+    border: 1px solid rgba(232,200,122,0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #8a9ab5;
+    background: transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .vibe-chip.on {
+    border-color: #e8c87a;
+    color: #e8c87a;
+    background: rgba(232,200,122,0.1);
+    font-weight: 600;
+  }
+
+  .generate-btn {
+    width: 100%;
+    padding: 12px;
+    background: #e8c87a;
+    color: #0d1b2a;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .generate-btn:hover { background: #f0d898; }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .gen-itinerary-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .gen-itinerary-item:last-child { border-bottom: none; }
+
+  .gen-time {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e8c87a;
+    white-space: nowrap;
+    width: 54px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .gen-activity-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f0e6cc;
+  }
+
+  .gen-activity-desc {
+    font-size: 11px;
+    color: #8a9ab5;
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+
+  .gen-transit-badge {
+    font-size: 10px;
+    background: rgba(126,200,227,0.15);
+    color: #7ec8e3;
+    border-radius: 4px;
+    padding: 2px 7px;
+    display: inline-block;
+    margin-top: 4px;
+  }
+
+  .confidence-bar {
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .confidence-label {
+    font-size: 12px;
+    color: #8a9ab5;
+    white-space: nowrap;
+  }
+
+  .confidence-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  .confidence-score {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <div class="header glass">
+      <div>
+        <h1>🗓 Vancouver Trip Planner</h1>
+        <p>Plan your day · check weather · map your route</p>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div id="google_translate_element"></div>
+        <a href="/" class="back-btn">← Back to dashboard</a>
+      </div>
+    </div>
+
+    <div class="calendar-view glass" id="calendarView">
+      <div class="calendar-header">
+        <button class="nav-btn" onclick="changeMonth(-1)">← Prev</button>
+        <div class="month-title" id="monthTitle"></div>
+        <button class="nav-btn" onclick="changeMonth(1)">Next →</button>
+      </div>
+      <div class="calendar-grid">
+        <div class="day-headers">
+          <div class="day-header">Sun</div>
+          <div class="day-header">Mon</div>
+          <div class="day-header">Tue</div>
+          <div class="day-header">Wed</div>
+          <div class="day-header">Thu</div>
+          <div class="day-header">Fri</div>
+          <div class="day-header">Sat</div>
+        </div>
+        <div class="days-grid" id="daysGrid"></div>
+      </div>
+    </div>
+
+    <div class="week-view glass" id="weekView" style="display:none">
+      <div class="day-view-header">
+        <div>
+          <div class="day-view-title" id="weekViewTitle">Week of...</div>
+          <div class="day-view-sub">Click a day to plan your trip</div>
+        </div>
+        <button class="nav-btn" onclick="backToCalendar()">← Back to calendar</button>
+      </div>
+      <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+    <div class="day-view glass" id="dayView">
+      <div class="day-view-header">
+        <div>
+          <div class="day-view-title" id="dayViewTitle"></div>
+          <div class="day-view-sub">Vancouver, BC</div>
+        </div>
+        <button class="nav-btn" onclick="backToWeek()">← Back to week</button>
+      </div>
+      <div class="day-content">
+
+        <!-- Day Briefing -->
+<div class="day-briefing glass" id="dayBriefing">
+
+  <div class="briefing-row" id="briefingWeather">
+    <span class="briefing-icon">⏳</span>
+    <span id="briefingWeatherText">Loading weather...</span>
+  </div>
+  <div class="briefing-divider"></div>
+  <div class="briefing-label">Events that day</div>
+  <div id="briefingEvents">
+    <div class="briefing-row">
+      <span class="briefing-icon">⏳</span>
+      <span>Loading events...</span>
+    </div>
+  </div>
+  <div class="briefing-divider"></div>
+  <div class="briefing-advisory" id="briefingAdvisory"></div>
+</div>
+
+        <div id="savedPlanSummary" style="display:none">
+          <div class="day-section-title">✅ Your saved plan</div>
+          <div id="savedPlanContent" style="background:rgba(76,175,130,0.1);border:1px solid rgba(76,175,130,0.3);border-radius:8px;padding:12px 14px;font-size:13px;color:#c8d8e8;line-height:1.8;"></div>
+        </div>
+
+        <div style="display:none">
+          <div class="day-section-title">🌤 Weather</div>
+          <div class="day-weather">
+            <div class="day-weather-icon" id="dayWeatherIcon">⏳</div>
+            <div>
+              <div class="day-weather-temp" id="dayWeatherTemp">--°C</div>
+              <div class="day-weather-desc" id="dayWeatherDesc">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate My Trip -->
+        <div class="generate-trip-section">
+          <div class="day-section-title">✨ Generate my trip</div>
+
+          <div class="generate-form">
+            <div class="gen-row">
+              <div class="gen-field">
+                <label class="time-label">Start time</label>
+                <input type="time" id="genStartTime" class="time-input" value="09:00" />
+              </div>
+              <div class="gen-field">
+                <label class="time-label">End time</label>
+                <input type="time" id="genEndTime" class="time-input" value="21:00" />
+              </div>
+              <div class="gen-field" style="flex:2">
+                <label class="time-label">Starting from</label>
+                <input type="text" id="genStartLocation" class="stop-input" placeholder="📍 Your starting location" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="gen-row">
+              <label class="time-label" style="align-self:center">Vibe</label>
+              <div class="vibe-chips" id="vibeChips">
+                <div class="vibe-chip on" onclick="selectVibe(this)">🌿 Outdoor</div>
+                <div class="vibe-chip" onclick="selectVibe(this)">☕ Cafe & study</div>
+                <div class="vibe-chip" onclick="selectVibe(this)">🎨 Culture</div>
+                <div class="vibe-chip" onclick="selectVibe(this)">🍜 Food tour</div>
+                <div class="vibe-chip" onclick="selectVibe(this)">🎭 Events</div>
+                <div class="vibe-chip" onclick="selectVibe(this)">🏖 Chill</div>
+              </div>
+            </div>
+
+            <button class="generate-btn" onclick="generateTrip()">
+              ✨ Generate my Vancouver day
+            </button>
+          </div>
+
+          <div id="generateResult" style="display:none">
+            <div id="generateOutput"></div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button onclick="applyGeneratedTrip()" style="
+                background:#e8c87a;color:#0d1b2a;border:none;
+                border-radius:8px;padding:10px 18px;font-size:13px;
+                font-weight:700;cursor:pointer;flex:1;
+              ">✅ Add to my plan</button>
+              <button onclick="generateTrip()" style="
+                background:rgba(255,255,255,0.07);color:#f0e6cc;
+                border:1px solid rgba(255,255,255,0.12);
+                border-radius:8px;padding:10px 18px;font-size:13px;
+                cursor:pointer;
+              ">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="day-section-title">📍 Your trip stops</div>
+          <div class="stops-list" id="stopsList"></div>
+          <div class="add-stop-form">
+
+            <div class="stop-form-row">
+              <div class="stop-form-field" style="flex:2">
+                <label class="time-label">From</label>
+                <input class="stop-input" id="stopFrom" placeholder="📍 From (e.g. SFU)" autocomplete="off" />
+              </div>
+              <div class="stop-form-field" style="flex:2">
+                <label class="time-label">To</label>
+                <input class="stop-input" id="stopName" placeholder="🏁 To (e.g. English Bay)" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="stop-form-row">
+              <div class="stop-form-field">
+                <label class="time-label">Leave</label>
+                <input class="time-input" id="stopLeaveTime" type="time" />
+              </div>
+              <div class="stop-form-field">
+                <label class="time-label">Arrive</label>
+                <input class="time-input" id="stopArriveTime" type="time" />
+              </div>
+              <div class="stop-form-field" style="flex:2">
+                <label class="time-label">Bus / Train route</label>
+                <input class="stop-input" id="stopRoute" placeholder="🚌 e.g. R5, Expo Line" autocomplete="off" />
+              </div>
+              <div class="stop-form-field" style="align-self:flex-end">
+                <button class="add-btn" id="addStopBtn" onclick="addStop()">+ Add stop</button>
+              </div>
+            </div>
+
+          </div>
+          <div class="reminder-row">
+            <span class="reminder-label">🔔 Remind me before each stop:</span>
+            <button class="reminder-btn" onclick="setReminder(30)">30 min</button>
+            <button class="reminder-btn" onclick="setReminder(15)">15 min</button>
+            <button class="reminder-btn" onclick="setReminder(5)">5 min</button>
+          </div>
+        </div>
+
+        <!-- Trip map -->
+        <div id="tripMapSection" style="display:none">
+          <div class="day-section-title">🗺 Your trip on the map</div>
+          <div id="tripMap" style="
+            width: 100%;
+            height: 300px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+          "></div>
+          <div id="tripDirections" style="
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          "></div>
+        </div>
+
+        <div>
+          <div class="day-section-title">📝 Notes for this day</div>
+          <textarea class="notes-input" id="dayNotes" placeholder="Add notes for your trip..."></textarea>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <button class="save-btn" onclick="showTripMap()" style="background:rgba(126,200,227,0.2);color:#7ec8e3;border:1px solid rgba(126,200,227,0.4);">
+              🗺 Show on map
+            </button>
+            <button class="save-btn" onclick="saveDayPlan()">
+              💾 Save plan
+            </button>
+            <button class="save-btn" onclick="shareTrip()" style="background:rgba(76,175,130,0.2);color:#4caf82;border:1px solid rgba(76,175,130,0.4);">
+              🔗 Share trip
+            </button>
+          </div>
+
+          <!-- Share modal -->
+          <div id="shareModal" style="display:none; margin-top:12px; background:rgba(76,175,130,0.1); border:1px solid rgba(76,175,130,0.3); border-radius:10px; padding:14px 16px;">
+            <div style="font-size:12px; font-weight:700; color:#4caf82; margin-bottom:8px;">🔗 Share this trip</div>
+            <div style="display:flex; gap:8px;">
+              <input id="shareUrl" type="text" readonly style="
+                flex:1;
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 12px;
+                color: #c8d8e8;
+                outline: none;
+              " />
+              <button onclick="copyShareUrl()" style="
+                background: #4caf82;
+                color: #0d1b2a;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 14px;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                white-space: nowrap;
+              " id="copyShareBtn">Copy link</button>
+            </div>
+            <div style="font-size:11px; color:#8a9ab5; margin-top:6px;">
+              Anyone with this link can view your trip plan 🌊
+            </div>
+          </div>
+
+          <div class="saved-msg" id="savedMsg">✓ Plan saved!</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentDate = new Date();
+    let selectedDate = null;
+    let currentWeekStart = null;
+    let stops = [];
+    let reminderMinutes = 30;
+    let plans = JSON.parse(localStorage.getItem('vancouverPlans') || '{}');
+
+    function setTimeOfDay() {
+      const hour = new Date().getHours();
+      const body = document.body;
+      body.classList.remove('morning','afternoon','evening','night');
+      if (hour >= 6 && hour < 12) body.classList.add('morning');
+      else if (hour >= 12 && hour < 18) body.classList.add('afternoon');
+      else if (hour >= 18 && hour < 22) body.classList.add('evening');
+      else body.classList.add('night');
+    }
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthNames = ['January','February','March','April','May','June',
+        'July','August','September','October','November','December'];
+      document.getElementById('monthTitle').textContent = monthNames[month] + ' ' + year;
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = new Date();
+      let html = '';
+      for (let i = 0; i < firstDay; i++) html += '<div class="day-cell empty"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateKey = year + '-' + (month+1) + '-' + d;
+        const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+        const hasPlan = plans[dateKey] && (plans[dateKey].stops?.length > 0 || plans[dateKey].notes);
+        let classes = 'day-cell' + (isToday ? ' today' : '') + (hasPlan ? ' has-plan' : '');
+        html += `<div class="${classes}" onclick="openDay(${d},${month},${year})">
+          <div class="day-number">${d}</div>
+          ${hasPlan ? '<div class="day-dot"></div>' : ''}
+        </div>`;
+      }
+      document.getElementById('daysGrid').innerHTML = html;
+    }
+
+    function changeMonth(dir) {
+      currentDate.setMonth(currentDate.getMonth() + dir);
+      renderCalendar();
+    }
+
+    function openDay(day, month, year) {
+      openWeek(day, month, year);
+    }
+
+    function openWeek(day, month, year) {
+      const date = new Date(year, month, day);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      currentWeekStart = weekStart;
+
+      const monthNames = ['January','February','March','April','May','June',
+        'July','August','September','October','November','December'];
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const today = new Date();
+
+      document.getElementById('weekViewTitle').textContent =
+        'Week of ' + monthNames[weekStart.getMonth()] + ' ' + weekStart.getDate();
+
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const dKey = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+        const saved = plans[dKey];
+        const isToday = d.toDateString() === today.toDateString();
+        const hasPlan = saved && (saved.stops?.length > 0 || saved.notes);
+        let classes = 'week-day-card' + (isToday ? ' today' : '') + (hasPlan ? ' has-plan' : '');
+        let planPreview = '';
+        if (hasPlan) {
+          if (saved.stops?.length > 0) planPreview += saved.stops.slice(0,2).map(s => '📍 ' + s.name).join('<br>');
+          if (saved.notes) planPreview += (planPreview ? '<br>' : '') + '📝 ' + saved.notes.substring(0,30) + '...';
+        }
+        html += `<div class="${classes}" onclick="openDayView(${d.getDate()},${d.getMonth()},${d.getFullYear()})">
+          <div class="week-day-name">${dayNames[d.getDay()]}</div>
+          <div class="week-day-num">${d.getDate()}</div>
+          ${hasPlan ? `<div class="week-plan-preview">${planPreview}</div>` : '<div class="week-no-plan">No plan</div>'}
+        </div>`;
+      }
+      document.getElementById('weekGrid').innerHTML = html;
+      document.getElementById('calendarView').classList.add('hide');
+      document.getElementById('weekView').style.display = 'block';
+      document.getElementById('dayView').classList.remove('show');
+    }
+
+    function openDayView(day, month, year) {
+      selectedDate = { day, month, year };
+      const dateKey = year + '-' + (month+1) + '-' + day;
+      const monthNames = ['January','February','March','April','May','June',
+        'July','August','September','October','November','December'];
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const date = new Date(year, month, day);
+      document.getElementById('dayViewTitle').textContent =
+        dayNames[date.getDay()] + ', ' + monthNames[month] + ' ' + day + ', ' + year;
+
+      const saved = plans[dateKey] || {};
+      stops = saved.stops || [];
+      document.getElementById('dayNotes').value = saved.notes || '';
+      renderStops();
+
+      const summary = document.getElementById('savedPlanSummary');
+      const content = document.getElementById('savedPlanContent');
+      if (saved.stops?.length > 0 || saved.notes) {
+        let html = '';
+        if (saved.stops?.length > 0) {
+          html += '<strong>📍 Stops:</strong><br>';
+          saved.stops.forEach((s, i) => {
+            html += `${i+1}. ${s.name}${s.time ? ' at ' + s.time : ''}<br>`;
+          });
+        }
+        if (saved.notes) html += '<br><strong>📝 Notes:</strong><br>' + saved.notes;
+        content.innerHTML = html;
+        summary.style.display = 'block';
+      } else {
+        summary.style.display = 'none';
+      }
+
+      loadDayBriefing(day, month, year);
+      document.getElementById('weekView').style.display = 'none';
+      document.getElementById('dayView').classList.add('show');
+    }
+
+    function backToCalendar() {
+      document.getElementById('calendarView').classList.remove('hide');
+      document.getElementById('weekView').style.display = 'none';
+      document.getElementById('dayView').classList.remove('show');
+      renderCalendar();
+    }
+
+    function backToWeek() {
+      document.getElementById('dayView').classList.remove('show');
+      document.getElementById('weekView').style.display = 'block';
+      if (currentWeekStart) {
+        openWeek(currentWeekStart.getDate(), currentWeekStart.getMonth(), currentWeekStart.getFullYear());
+      }
+    }
+
+    async function loadDayBriefing(day, month, year) {
+      const monthNames = ['January','February','March','April','May','June',
+        'July','August','September','October','November','December'];
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const date = new Date(year, month, day);
+      const today = new Date();
+      const isFuture = date > today;
+
+      // Load weather
+      await loadBriefingWeather(isFuture);
+
+      // Load events for that specific date
+      await loadBriefingEvents(year, month + 1, day);
+    }
+
+    async function loadBriefingWeather(isFuture) {
+      const apiKey = '05a37dd24f99d042d5f7892478cd7921';
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=Vancouver,CA&appid=${apiKey}&units=metric`
+        );
+        const data = await res.json();
+        const temp = Math.round(data.main.temp);
+        const desc = data.weather[0].description;
+        const code = data.weather[0].id;
+        const feelsLike = Math.round(data.main.feels_like);
+
+        let icon = '🌤';
+        if (code >= 200 && code < 300) icon = '⛈';
+        else if (code >= 300 && code < 400) icon = '🌦';
+        else if (code >= 500 && code < 600) icon = '🌧';
+        else if (code >= 600 && code < 700) icon = '❄️';
+        else if (code >= 700 && code < 800) icon = '🌫';
+        else if (code === 800) icon = '☀️';
+        else if (code > 800) icon = '☁️';
+
+        const isRain = code >= 300 && code < 700;
+        const tip = isRain ? ' · Bring an umbrella ☂️' :
+          temp <= 5 ? ' · Dress warm 🧥' :
+          temp >= 20 ? ' · Great weather for walking! ☀️' : '';
+
+        document.getElementById('briefingWeatherText').textContent =
+          `${icon} ${temp}°C · Feels like ${feelsLike}°C · ${desc}${tip}`;
+
+        document.getElementById('briefingWeather').querySelector('.briefing-icon').textContent = icon;
+
+        // Set advisory
+        const advisory = document.getElementById('briefingAdvisory');
+        if (code >= 200 && code < 300) {
+          advisory.textContent = '⛈ Storm warning — allow extra travel time';
+          advisory.className = 'briefing-advisory high';
+        } else if (isRain) {
+          advisory.textContent = '🌧 Rain expected — transit may be busier than usual';
+          advisory.className = 'briefing-advisory medium';
+        } else {
+          advisory.textContent = '✅ Good conditions for your trip!';
+          advisory.className = 'briefing-advisory low';
+        }
+
+      } catch(e) {
+        document.getElementById('briefingWeatherText').textContent = 'Could not load weather';
+      }
+    }
+
+    async function loadBriefingEvents(year, month, day) {
+      const apiKey = '3GffF99K4HiuYx8iI6v5w7AV62VyJvgL';
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=Vancouver&countryCode=CA&startDateTime=${dateStr}T00:00:00Z&endDateTime=${dateStr}T23:59:59Z&size=5&sort=date,asc`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const events = data._embedded?.events?.filter(event => {
+          const segment = event.classifications?.[0]?.segment?.name || '';
+          const name = event.name.toLowerCase();
+          const blocked = ['admin','food & beverage','parking','vip','hospitality','encore guest pass','premium seating','tracking'];
+          return !blocked.some(w => name.includes(w)) &&
+            ['Music','Sports','Arts & Theatre','Family','Film'].includes(segment);
+        });
+
+        const container = document.getElementById('briefingEvents');
+
+        if (!events || events.length === 0) {
+          container.innerHTML = '<div class="briefing-row"><span class="briefing-icon">📅</span><span style="color:#5a7a9a">No major events this day</span></div>';
+          return;
+        }
+
+        container.innerHTML = events.map(event => {
+          const name = event.name;
+          const venue = event._embedded?.venues?.[0]?.name || 'Vancouver';
+          const date = new Date(event.dates.start.dateTime || event.dates.start.localDate);
+          const time = event.dates.start.noSpecificTime ? '' :
+            date.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' });
+          const segment = event.classifications?.[0]?.segment?.name || '';
+          let icon = '🎟';
+          if (segment === 'Sports') icon = '🏆';
+          else if (segment === 'Music') icon = '🎵';
+          else if (segment === 'Arts & Theatre') icon = '🎭';
+
+          return `
+            <div class="briefing-event-item">
+              <span>${icon} ${name} · <span style="color:#8a9ab5;font-size:11px">${venue}</span></span>
+              <span class="briefing-event-time">${time}</span>
+            </div>
+          `;
+        }).join('');
+
+        // Update advisory if high impact events
+        const hasHighImpact = events.some(e => {
+          const venue = e._embedded?.venues?.[0]?.name || '';
+          return venue.toLowerCase().includes('rogers arena') ||
+                 venue.toLowerCase().includes('bc place');
+        });
+
+        if (hasHighImpact) {
+          const advisory = document.getElementById('briefingAdvisory');
+          advisory.textContent = '⚠️ Major event near transit hubs — expect crowding';
+          advisory.className = 'briefing-advisory high';
+        }
+
+      } catch(e) {
+        document.getElementById('briefingEvents').innerHTML =
+          '<div class="briefing-row"><span style="color:#5a7a9a">Could not load events</span></div>';
+      }
+    }
+
+    let editingIndex = null;
+
+    function addStop() {
+      const fromInput = document.getElementById('stopFrom');
+      const toInput = document.getElementById('stopName');
+      const from = fromInput.value.trim();
+      const name = toInput.value.trim();
+      const leaveTime = document.getElementById('stopLeaveTime').value;
+      const arriveTime = document.getElementById('stopArriveTime').value;
+      const route = document.getElementById('stopRoute').value.trim();
+
+      if (!name) return;
+
+      const stopData = {
+        from,
+        name,
+        leaveTime,
+        arriveTime,
+        route,
+        fromLat: fromInput.dataset.lat || null,
+        fromLng: fromInput.dataset.lng || null,
+        toLat: toInput.dataset.lat || null,
+        toLng: toInput.dataset.lng || null,
+      };
+
+      if (editingIndex !== null) {
+        stops[editingIndex] = stopData;
+        editingIndex = null;
+        document.getElementById('addStopBtn').textContent = '+ Add stop';
+        document.getElementById('addStopBtn').style.background = '#e8c87a';
+      } else {
+        stops.push(stopData);
+      }
+
+      // Clear form
+      fromInput.value = '';
+      toInput.value = '';
+      document.getElementById('stopLeaveTime').value = '';
+      document.getElementById('stopArriveTime').value = '';
+      document.getElementById('stopRoute').value = '';
+      delete fromInput.dataset.lat;
+      delete fromInput.dataset.lng;
+      delete toInput.dataset.lat;
+      delete toInput.dataset.lng;
+
+      renderStops();
+
+      // Auto-fill From with previous stop's To
+      if (stops.length > 0) {
+        const lastStop = stops[stops.length - 1];
+        fromInput.value = lastStop.name;
+        if (lastStop.toLat) fromInput.dataset.lat = lastStop.toLat;
+        if (lastStop.toLng) fromInput.dataset.lng = lastStop.toLng;
+      }
+    }
+
+    function editStop(index) {
+      const stop = stops[index];
+      editingIndex = index;
+
+      document.getElementById('stopFrom').value = stop.from || '';
+      document.getElementById('stopName').value = stop.name;
+      document.getElementById('stopLeaveTime').value = stop.leaveTime || '';
+      document.getElementById('stopArriveTime').value = stop.arriveTime || '';
+      document.getElementById('stopRoute').value = stop.route || '';
+
+      const btn = document.getElementById('addStopBtn');
+      btn.textContent = '✓ Update stop';
+      btn.style.background = '#4caf82';
+
+      document.getElementById('stopName').focus();
+      document.getElementById('stopName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function removeStop(index) {
+      if (editingIndex === index) {
+        editingIndex = null;
+        document.getElementById('addStopBtn').textContent = '+ Add stop';
+        document.getElementById('addStopBtn').style.background = '#e8c87a';
+        document.getElementById('stopName').value = '';
+        document.getElementById('stopLeaveTime').value = '';
+        document.getElementById('stopArriveTime').value = '';
+        document.getElementById('stopRoute').value = '';
+      }
+      stops.splice(index, 1);
+      renderStops();
+    }
+
+    function renderStops() {
+      if (stops.length === 0) {
+        document.getElementById('stopsList').innerHTML =
+          '<div style="font-size:12px;color:#5a7a9a;padding:8px 0;">No stops yet — add your first stop below</div>';
+        return;
+      }
+
+      document.getElementById('stopsList').innerHTML = stops.map((stop, i) => `
+        <div class="stop-item ${editingIndex === i ? 'edit-mode' : ''}">
+          <div class="stop-item-top">
+            <div class="stop-number">${i + 1}</div>
+            <div class="stop-info">
+              <div class="stop-name">
+                ${stop.from ? `<span style="color:#8a9ab5">${stop.from}</span> → ` : ''}${stop.name}
+              </div>
+            </div>
+            <div class="stop-actions">
+              <button class="stop-edit" onclick="editStop(${i})">✏️ Edit</button>
+              <button class="stop-remove" onclick="removeStop(${i})">✕ Remove</button>
+            </div>
+          </div>
+          <div class="stop-item-details">
+            ${stop.leaveTime ? `<div class="stop-detail-badge">🚶 Leave ${stop.leaveTime}</div>` : ''}
+            ${stop.arriveTime ? `<div class="stop-detail-badge">📍 Arrive ${stop.arriveTime}</div>` : ''}
+            ${stop.route ? `<div class="stop-detail-badge">🚌 ${stop.route}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setReminder(minutes) {
+      reminderMinutes = minutes;
+      if (Notification.permission !== 'granted') Notification.requestPermission();
+      let anySet = false;
+      stops.forEach(stop => {
+        if (!stop.time) return;
+        const [h, m] = stop.time.split(':').map(Number);
+        const now = new Date();
+        const leaveTime = new Date(selectedDate.year, selectedDate.month, selectedDate.day, h, m);
+        const reminderTime = new Date(leaveTime.getTime() - minutes * 60000);
+        const delay = reminderTime.getTime() - now.getTime();
+        if (delay > 0) {
+          setTimeout(() => {
+            new Notification('Vancouver Trip Reminder 🚌', {
+              body: `Leave in ${minutes} mins for ${stop.name}!`
+            });
+          }, delay);
+          anySet = true;
+        }
+      });
+      if (anySet) alert(`✓ Reminders set! You'll be notified ${minutes} mins before each stop.`);
+      else alert('⚠ No upcoming stops with times set. Add a time to each stop first.');
+    }
+
+    function saveDayPlan() {
+      if (!selectedDate) return;
+      const dateKey = selectedDate.year + '-' + (selectedDate.month+1) + '-' + selectedDate.day;
+      plans[dateKey] = { stops, notes: document.getElementById('dayNotes').value };
+      localStorage.setItem('vancouverPlans', JSON.stringify(plans));
+      const msg = document.getElementById('savedMsg');
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 2000);
+    }
+
+    function initPlacesAutocomplete() {
+      const fromInput = document.getElementById('stopFrom');
+      const toInput = document.getElementById('stopName');
+
+      if (!fromInput || !toInput || typeof google === 'undefined') return;
+
+      const bounds = new google.maps.LatLngBounds(
+        { lat: 49.0, lng: -123.5 },
+        { lat: 49.5, lng: -122.5 }
+      );
+
+      const options = {
+        componentRestrictions: { country: 'ca' },
+        bounds,
+        strictBounds: false,
+        fields: ['name', 'formatted_address', 'geometry']
+      };
+
+      const fromAuto = new google.maps.places.Autocomplete(fromInput, options);
+      const toAuto = new google.maps.places.Autocomplete(toInput, options);
+
+      fromAuto.addListener('place_changed', () => {
+        const place = fromAuto.getPlace();
+        if (place.geometry) {
+          fromInput.dataset.lat = place.geometry.location.lat();
+          fromInput.dataset.lng = place.geometry.location.lng();
+          fromInput.dataset.address = place.formatted_address || place.name;
+          // Try to suggest route if To is already filled
+          if (toInput.dataset.lat) suggestRoute();
+        }
+      });
+
+      toAuto.addListener('place_changed', () => {
+        const place = toAuto.getPlace();
+        if (place.geometry) {
+          toInput.dataset.lat = place.geometry.location.lat();
+          toInput.dataset.lng = place.geometry.location.lng();
+          toInput.dataset.address = place.formatted_address || place.name;
+          // Auto suggest route when To is selected
+          if (fromInput.dataset.lat) suggestRoute();
+        }
+      });
+
+      const genInput = document.getElementById('genStartLocation');
+      if (genInput) {
+        new google.maps.places.Autocomplete(genInput, {
+          componentRestrictions: { country: 'ca' },
+          bounds,
+          strictBounds: false,
+          fields: ['name', 'formatted_address', 'geometry']
+        });
+      }
+    }
+
+    async function suggestRoute() {
+      const fromInput = document.getElementById('stopFrom');
+      const toInput = document.getElementById('stopName');
+      const routeInput = document.getElementById('stopRoute');
+      const arriveInput = document.getElementById('stopArriveTime');
+      const leaveInput = document.getElementById('stopLeaveTime');
+
+      if (!fromInput.dataset.lat || !toInput.dataset.lat) return;
+
+      // Show loading state
+      routeInput.value = '🔍 Finding best route...';
+      routeInput.style.color = '#8a9ab5';
+
+      const origin = { lat: parseFloat(fromInput.dataset.lat), lng: parseFloat(fromInput.dataset.lng) };
+      const destination = { lat: parseFloat(toInput.dataset.lat), lng: parseFloat(toInput.dataset.lng) };
+
+      const service = new google.maps.DirectionsService();
+
+      // Use leave time if set, otherwise use now
+      let departureTime = new Date();
+      if (leaveInput.value) {
+        const [h, m] = leaveInput.value.split(':').map(Number);
+        departureTime = new Date();
+        departureTime.setHours(h, m, 0, 0);
+      } else {
+        // Default to 9am tomorrow if no time set — avoids night bus suggestions
+        departureTime = new Date();
+        departureTime.setDate(departureTime.getDate() + 1);
+        departureTime.setHours(9, 0, 0, 0);
+        // Show hint to set leave time
+        document.getElementById('stopLeaveTime').placeholder = 'Set time for accuracy';
+      }
+
+      service.route({
+        origin,
+        destination,
+        travelMode: google.maps.TravelMode.TRANSIT,
+        transitOptions: {
+          departureTime,
+          modes: [
+            google.maps.TransitMode.BUS,
+            google.maps.TransitMode.RAIL,
+            google.maps.TransitMode.SUBWAY
+          ]
+        }
+      }, (result, status) => {
+        if (status !== 'OK') {
+          routeInput.value = '';
+          routeInput.placeholder = '🚌 e.g. R5, Expo Line';
+          routeInput.style.color = '#f0e6cc';
+          return;
+        }
+
+        const leg = result.routes[0].legs[0];
+        const steps = leg.steps;
+
+        // Build route string from transit steps
+        const transitLines = [];
+        steps.forEach(step => {
+          if (step.travel_mode === 'TRANSIT') {
+            const line = step.transit?.line?.short_name ||
+                         step.transit?.line?.name || '';
+            if (line && !transitLines.includes(line)) {
+              transitLines.push(line);
+            }
+          }
+        });
+
+        // Fill in route field
+        routeInput.value = transitLines.length > 0
+          ? transitLines.join(' → ')
+          : 'Transit';
+        routeInput.style.color = '#f0e6cc';
+
+        // Fill in arrive time
+        const arriveTime = new Date(departureTime.getTime() + leg.duration.value * 1000);
+        arriveInput.value = arriveTime.toTimeString().slice(0, 5);
+
+        // Calculate suggested leave time (5 mins buffer to reach stop)
+        const walkToStopTime = steps[0]?.duration?.value || 300;
+        const suggestedLeave = new Date(departureTime.getTime() - walkToStopTime * 1000);
+        const suggestedLeaveStr = suggestedLeave.toTimeString().slice(0, 5);
+
+        // Store for banner
+        window.lastSuggestedLeave = suggestedLeaveStr;
+        window.lastDuration = leg.duration.text;
+        window.lastDistance = leg.distance.text;
+
+        // Show smart suggestion banner
+        showRouteSuggestion(leg, steps, transitLines);
+      });
+    }
+
+    function showRouteSuggestion(leg, steps, transitLines) {
+      // Remove existing suggestion
+      const existing = document.getElementById('routeSuggestionBanner');
+      if (existing) existing.remove();
+
+      const hour = new Date().getHours();
+      const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
+      const isRaining = document.getElementById('briefingWeatherText')
+        ?.textContent?.toLowerCase().includes('rain');
+      const hasHighImpactEvent = document.querySelector('.briefing-advisory.high') !== null;
+
+      let warnings = [];
+      if (isRushHour) warnings.push('🚇 Rush hour — expect crowding');
+      if (isRaining) warnings.push('🌧 Rain — allow extra time');
+      if (hasHighImpactEvent) warnings.push('🎟 Major event nearby — busy transit');
+
+      const banner = document.createElement('div');
+      banner.id = 'routeSuggestionBanner';
+      banner.style.cssText = `
+        background: rgba(232,200,122,0.1);
+        border: 1px solid rgba(232,200,122,0.3);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #e8c87a;
+        line-height: 1.8;
+      `;
+
+      banner.innerHTML = `
+        <div style="font-weight:700;margin-bottom:6px;">
+          🚌 Best route: ${transitLines.join(' → ')} · ${leg.duration.text} · ${leg.distance.text}
+        </div>
+        <div style="color:#c8d8e8;margin-bottom:4px;">
+          ⏰ Suggested leave time: <strong style="color:#e8c87a">${window.lastSuggestedLeave}</strong>
+          <button onclick="applyLeaveTime('${window.lastSuggestedLeave}')" style="
+            background: rgba(232,200,122,0.2);
+            border: 1px solid rgba(232,200,122,0.4);
+            color: #e8c87a;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 6px;
+          ">Use this time</button>
+        </div>
+        ${warnings.length > 0
+          ? `<div style="color:#f08080;font-size:11px;">${warnings.join(' · ')}</div>`
+          : `<div style="color:#4caf82;font-size:11px;">✅ Good time to travel!</div>`
+        }
+      `;
+
+      // Insert after the form
+      document.querySelector('.add-stop-form').after(banner);
+    }
+
+    function applyLeaveTime(time) {
+      document.getElementById('stopLeaveTime').value = time;
+    }
+
+    let tripMap = null;
+    let tripMarkers = [];
+    let tripRenderers = [];
+
+    function showTripMap() {
+      if (stops.length < 1) return;
+
+      const section = document.getElementById('tripMapSection');
+      section.style.display = 'block';
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Initialize map centered on Vancouver
+      const vancouver = { lat: 49.2827, lng: -123.1207 };
+
+      if (!tripMap) {
+        tripMap = new google.maps.Map(document.getElementById('tripMap'), {
+          zoom: 12,
+          center: vancouver,
+          styles: [
+            { elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: '#8a9ab5' }] },
+            { elementType: 'labels.text.stroke', stylers: [{ color: '#0d1b2a' }] },
+            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a3a5a' }] },
+            { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1e4a7a' }] },
+            { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e8c87a' }] }
+          ],
+          disableDefaultUI: true,
+          zoomControl: true,
+        });
+      }
+
+      // Clear old markers and renderers
+      tripMarkers.forEach(m => m.setMap(null));
+      tripMarkers = [];
+      tripRenderers.forEach(r => r.setMap(null));
+      tripRenderers = [];
+
+      const directionsContainer = document.getElementById('tripDirections');
+      directionsContainer.innerHTML = '<div style="font-size:12px;color:#8a9ab5;text-align:center;padding:8px">Loading directions...</div>';
+
+      const bounds = new google.maps.LatLngBounds();
+      const service = new google.maps.DirectionsService();
+
+      // Build legs from stops
+      const routeStops = [];
+      stops.forEach((stop, i) => {
+        if (stop.fromLat && stop.fromLng && i === 0) {
+          routeStops.push({ lat: parseFloat(stop.fromLat), lng: parseFloat(stop.fromLng), label: 'Start', name: stop.from });
+        }
+        if (stop.toLat && stop.toLng) {
+          routeStops.push({ lat: parseFloat(stop.toLat), lng: parseFloat(stop.toLng), label: String(i + 1), name: stop.name });
+        }
+      });
+
+      if (routeStops.length < 2) {
+        directionsContainer.innerHTML = '<div style="font-size:12px;color:#8a9ab5;text-align:center;padding:8px">Add stops with locations to see the map route</div>';
+        return;
+      }
+
+      // Add numbered markers
+      routeStops.forEach((stop, i) => {
+        const pos = { lat: stop.lat, lng: stop.lng };
+        bounds.extend(pos);
+
+        const marker = new google.maps.Marker({
+          position: pos,
+          map: tripMap,
+          title: stop.name,
+          label: {
+            text: i === 0 ? '⚑' : String(i),
+            color: '#0d1b2a',
+            fontWeight: 'bold',
+            fontSize: '12px'
+          },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 16,
+            fillColor: i === 0 ? '#4caf82' : '#e8c87a',
+            fillOpacity: 1,
+            strokeColor: '#0d1b2a',
+            strokeWeight: 2
+          }
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<div style="background:#0d1b2a;color:#f0e6cc;padding:8px 12px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;font-weight:600;">${stop.name}</div>`
+        });
+
+        marker.addListener('click', () => infoWindow.open(tripMap, marker));
+        tripMarkers.push(marker);
+      });
+
+      tripMap.fitBounds(bounds);
+
+      // Draw routes between each consecutive stop
+      let completedLegs = 0;
+      const totalLegs = routeStops.length - 1;
+      const allLegData = new Array(totalLegs);
+
+      for (let i = 0; i < totalLegs; i++) {
+        const origin = routeStops[i];
+        const dest = routeStops[i + 1];
+        const stop = stops[i];
+
+        // Use leave time if available
+        let departureTime = new Date();
+        if (stop?.leaveTime) {
+          const [h, m] = stop.leaveTime.split(':').map(Number);
+          departureTime = new Date();
+          departureTime.setHours(h, m, 0, 0);
+        }
+
+        const renderer = new google.maps.DirectionsRenderer({
+          map: tripMap,
+          polylineOptions: {
+            strokeColor: i === 0 ? '#e8c87a' : i === 1 ? '#4caf82' : i === 2 ? '#7ec8e3' : '#f08080',
+            strokeWeight: 3,
+            strokeOpacity: 0.8
+          },
+          suppressMarkers: true,
+          suppressInfoWindows: true
+        });
+
+        tripRenderers.push(renderer);
+
+        const legIndex = i;
+        service.route({
+          origin: { lat: origin.lat, lng: origin.lng },
+          destination: { lat: dest.lat, lng: dest.lng },
+          travelMode: google.maps.TravelMode.TRANSIT,
+          transitOptions: { departureTime }
+        }, (result, status) => {
+          if (status === 'OK') {
+            renderer.setDirections(result);
+            allLegData[legIndex] = {
+              origin: origin.name,
+              dest: dest.name,
+              leg: result.routes[0].legs[0],
+              color: legIndex === 0 ? '#e8c87a' : legIndex === 1 ? '#4caf82' : legIndex === 2 ? '#7ec8e3' : '#f08080'
+            };
+          }
+
+          completedLegs++;
+          if (completedLegs === totalLegs) {
+            renderDirectionsList(allLegData.filter(Boolean));
+          }
+        });
+      }
+    }
+
+    function renderDirectionsList(legData) {
+      const container = document.getElementById('tripDirections');
+
+      if (legData.length === 0) {
+        container.innerHTML = '<div style="font-size:12px;color:#8a9ab5;text-align:center">Could not load directions</div>';
+        return;
+      }
+
+      container.innerHTML = legData.map((data, i) => {
+        const steps = data.leg.steps;
+        const stepsHtml = steps.map(step => {
+          let icon = '🚶';
+          if (step.travel_mode === 'TRANSIT') {
+            const type = step.transit?.line?.vehicle?.type;
+            if (type === 'BUS') icon = '🚌';
+            else if (type === 'SUBWAY' || type === 'HEAVY_RAIL') icon = '🚇';
+            else if (type === 'FERRY') icon = '⛴';
+            const line = step.transit?.line?.short_name || '';
+            return `<div class="direction-step">${icon} ${step.instructions}${line ? ' (' + line + ')' : ''} · ${step.duration.text}</div>`;
+          }
+          return `<div class="direction-step">${icon} ${step.instructions} · ${step.duration.text}</div>`;
+        }).join('');
+
+        return `
+          <div class="direction-leg">
+            <div class="direction-leg-title">
+              <span style="background:${data.color};color:#0d1b2a;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i + 1}</span>
+              ${data.origin} → ${data.dest}
+              <span style="margin-left:auto;font-size:11px;color:#8a9ab5;font-weight:400">${data.leg.duration.text} · ${data.leg.distance.text}</span>
+            </div>
+            ${stepsHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function shareTrip() {
+      if (!selectedDate) return;
+
+      const plan = {
+        date: `${selectedDate.year}-${selectedDate.month + 1}-${selectedDate.day}`,
+        stops: stops,
+        notes: document.getElementById('dayNotes').value
+      };
+
+      // Encode plan into URL
+      const encoded = btoa(encodeURIComponent(JSON.stringify(plan)));
+      const url = window.location.origin + window.location.pathname + '?plan=' + encoded;
+
+      document.getElementById('shareUrl').value = url;
+      document.getElementById('shareModal').style.display = 'block';
+      document.getElementById('shareModal').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function copyShareUrl() {
+      const input = document.getElementById('shareUrl');
+      navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.getElementById('copyShareBtn');
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = 'Copy link', 2000);
+      });
+    }
+
+    function loadSharedPlan() {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get('plan');
+      if (!encoded) return;
+
+      try {
+        const plan = JSON.parse(decodeURIComponent(atob(encoded)));
+
+        // Parse the date
+        const [year, month, day] = plan.date.split('-').map(Number);
+
+        // Open the day view directly
+        openDayView(day, month - 1, year);
+
+        // Load the stops and notes
+        stops = plan.stops || [];
+        document.getElementById('dayNotes').value = plan.notes || '';
+        renderStops();
+
+        // Show a banner that this is a shared plan
+        const banner = document.createElement('div');
+        banner.style.cssText = `
+          background: rgba(126,200,227,0.1);
+          border: 1px solid rgba(126,200,227,0.3);
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 12px;
+          color: #7ec8e3;
+          margin-bottom: 12px;
+        `;
+        banner.innerHTML = '🔗 You\'re viewing a shared trip plan — save it to add it to your calendar!';
+
+        const dayContent = document.querySelector('.day-content');
+        if (dayContent) dayContent.prepend(banner);
+
+      } catch(e) {
+        console.error('Could not load shared plan', e);
+      }
+    }
+
+    let selectedVibe = 'outdoor';
+    let generatedItinerary = [];
+
+    function selectVibe(el) {
+      document.querySelectorAll('.vibe-chip').forEach(c => c.classList.remove('on'));
+      el.classList.add('on');
+      selectedVibe = el.textContent.toLowerCase();
+    }
+
+    function generateTrip() {
+      const startTime = document.getElementById('genStartTime').value || '09:00';
+      const endTime = document.getElementById('genEndTime').value || '21:00';
+      const startLocation = document.getElementById('genStartLocation').value.trim() || 'Downtown Vancouver';
+
+      const weatherText = document.getElementById('briefingWeatherText')?.textContent || '';
+      const isRaining = weatherText.toLowerCase().includes('rain');
+      const isCold = weatherText.includes('°C') && parseInt(weatherText) <= 8;
+      const isSunny = weatherText.toLowerCase().includes('clear') || weatherText.toLowerCase().includes('sunny');
+      const hasHighImpactEvent = document.querySelector('.briefing-advisory.high') !== null;
+
+      const hour = new Date().getHours();
+      const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
+
+      const itinerary = buildItinerary(startTime, endTime, startLocation, selectedVibe, isRaining, isCold, isSunny, hasHighImpactEvent, isRushHour);
+      generatedItinerary = itinerary;
+      displayGeneratedTrip(itinerary, isRaining, isRushHour);
+    }
+
+    function buildItinerary(startTime, endTime, startLocation, vibe, isRaining, isCold, isSunny, hasEvent, isRushHour) {
+      const [startH] = startTime.split(':').map(Number);
+      const [endH] = endTime.split(':').map(Number);
+      const duration = endH - startH;
+      const itinerary = [];
+      let h = startH;
+
+      const activities = {
+        outdoor: isRaining || isCold ? [
+          { name: 'Vancouver Public Library', desc: 'Central Branch · Georgia St · Free WiFi · warm up inside', icon: '📚', transit: 'Walk or any downtown bus', duration: 2 },
+          { name: 'Vancouver Art Gallery', desc: 'Robson St · free on Tuesdays · perfect rainy escape', icon: '🎨', transit: 'Walk from downtown', duration: 2 },
+          { name: 'Granville Island Public Market', desc: 'Covered market · street food · artisans · great rainy day', icon: '🛒', transit: 'Bus 50 from downtown', duration: 1.5 },
+          { name: 'Kafka\'s Coffee', desc: 'Main St · cozy · good WiFi · great people watching', icon: '☕', transit: 'Bus 3 from downtown', duration: 1 },
+        ] : [
+          { name: 'Kitsilano Beach', desc: '4th Ave & Cornwall · best beach in Vancouver · bring a frisbee', icon: '🏖', transit: 'Bus 2 or 22 from downtown', duration: 2 },
+          { name: 'Stanley Park Seawall', desc: 'Start at Coal Harbour · walk to English Bay · iconic Vancouver', icon: '🌿', transit: 'Walk from downtown · 10 mins', duration: 2 },
+          { name: 'Queen Elizabeth Park', desc: 'Bloedel Conservatory · best city panorama · free to enter park', icon: '🌸', transit: 'Bus 15 from downtown', duration: 1.5 },
+          { name: 'Lynn Canyon Suspension Bridge', desc: 'Free! · North Van · 30 mins on transit · underrated gem', icon: '🌲', transit: 'Bus 228 from Lonsdale Quay (SeaBus)', duration: 2.5 },
+        ],
+        'cafe & study': [
+          { name: 'Matchstick Coffee · Yaletown', desc: 'Best pour-over in the city · quiet · great WiFi', icon: '☕', transit: 'Walk from downtown', duration: 1.5 },
+          { name: 'Vancouver Public Library', desc: 'Central Branch · silent study floors · free · open til 9pm', icon: '📚', transit: 'Any downtown bus', duration: 2 },
+          { name: '49th Parallel · Main St', desc: 'Great espresso · local roaster · lively neighbourhood', icon: '☕', transit: 'Bus 3 from downtown', duration: 1 },
+          { name: 'Waves Coffee · Robson', desc: 'Quiet · good seating · right in the West End', icon: '☕', transit: 'Walk from downtown', duration: 1.5 },
+        ],
+        culture: [
+          { name: 'Vancouver Art Gallery', desc: 'Robson St · rotating exhibitions · stunning heritage building', icon: '🎨', transit: 'Walk from downtown', duration: 2 },
+          { name: 'Museum of Anthropology', desc: 'UBC · stunning First Nations collection · views of mountains', icon: '🏛', transit: 'Bus 99 B-Line to UBC', duration: 2.5 },
+          { name: 'Chinatown & Dr. Sun Yat-Sen Garden', desc: 'Oldest Chinatown in Canada · classical Chinese garden · $14', icon: '🏮', transit: 'Bus 19 or 22', duration: 1.5 },
+          { name: 'Granville Island Arts', desc: 'Emily Carr galleries · artisan studios · free to explore', icon: '🎭', transit: 'Bus 50 from downtown', duration: 2 },
+        ],
+        'food tour': [
+          { name: 'Chinatown dim sum', desc: 'New Town Bakery or Pink Pearl · best dim sum in the city', icon: '🥟', transit: 'Bus 19 from downtown', duration: 1.5 },
+          { name: 'Granville Island Market', desc: 'Fresh seafood · local produce · artisan cheese · best in BC', icon: '🦞', transit: 'Bus 50 from downtown', duration: 1.5 },
+          { name: 'Main Street food crawl', desc: 'Burdock & Co · Ask For Luigi · La Taqueria · all walkable', icon: '🍜', transit: 'Bus 3 from downtown', duration: 2 },
+          { name: 'Commercial Drive eats', desc: 'Little Italy vibes · Havana · Storm Crow · great local scene', icon: '🍕', transit: 'Expo Line to Commercial', duration: 2 },
+        ],
+        events: [
+          { name: 'Check tonight\'s event', desc: hasEvent ? 'Major event detected today — plan around it!' : 'No major events today · good for exploring', icon: '🎟', transit: 'Depends on venue', duration: 3 },
+          { name: 'Commodore Ballroom area', desc: 'Granville St entertainment district · bars · shows · energy', icon: '🎵', transit: 'Walk from downtown', duration: 2 },
+          { name: 'Rogers Arena surroundings', desc: 'Gastown · Railtown · great pre-game neighbourhood vibe', icon: '🏒', transit: 'Walk from downtown', duration: 1.5 },
+        ],
+        chill: [
+          { name: 'English Bay Beach', desc: 'Sunset views · people watching · grab a coffee from Waves nearby', icon: '🌅', transit: 'Bus 5 from downtown', duration: 2 },
+          { name: 'Gastown wander', desc: 'Steam clock · cobblestone streets · indie shops · very walkable', icon: '🕰', transit: 'Walk from downtown', duration: 1.5 },
+          { name: 'Seawall bike ride', desc: 'Rent from Mobi · Stanley Park loop · most iconic Vancouver activity', icon: '🚴', transit: 'Walk to Coal Harbour · 10 mins', duration: 2 },
+          { name: 'Kits Beach & surrounding cafes', desc: 'Rain or Shine ice cream · Beaucoup Bakery · very local vibe', icon: '🍦', transit: 'Bus 2 from downtown', duration: 2 },
+        ]
+      };
+
+      const vibeKey = Object.keys(activities).find(k => vibe.includes(k.split(' ')[0].toLowerCase())) || 'chill';
+      const pool = activities[vibeKey] || activities.chill;
+      const used = [];
+
+      // Morning activity
+      if (h < 12 && duration >= 2) {
+        const morning = pool.find(a => !used.includes(a.name)) || pool[0];
+        itinerary.push({ time: `${String(h).padStart(2,'0')}:00`, ...morning });
+        used.push(morning.name);
+        h += morning.duration + 0.5;
+      }
+
+      // Lunch break
+      if (h >= 11.5 && h <= 14 && duration >= 4) {
+        itinerary.push({
+          time: `${String(Math.floor(h)).padStart(2,'0')}:${h % 1 === 0.5 ? '30' : '00'}`,
+          name: isRaining ? 'Lunch inside' : 'Lunch break',
+          desc: isRaining ? 'Pho Bich Nga · Kintaro Ramen · Peaceful Restaurant' : 'Grab lunch at Granville Island Market or a local spot',
+          icon: '🍱',
+          transit: 'Varies by location',
+          duration: 1
+        });
+        h += 1.5;
+      }
+
+      // Afternoon activity
+      if (h < 17 && duration >= 3) {
+        const afternoon = pool.find(a => !used.includes(a.name)) || pool[1] || pool[0];
+        itinerary.push({ time: `${String(Math.floor(h)).padStart(2,'0')}:00`, ...afternoon });
+        used.push(afternoon.name);
+        h += afternoon.duration + 0.5;
+      }
+
+      // Rush hour buffer
+      if (isRushHour && h >= 16 && h <= 19) {
+        itinerary.push({
+          time: `${String(Math.floor(h)).padStart(2,'0')}:00`,
+          name: '⚠️ TransLink buffer',
+          desc: 'Rush hour detected · grab a coffee · avoid transit for 30–45 mins · less crowded after 6:30pm',
+          icon: '⏱',
+          transit: 'Wait it out',
+          duration: 0.75
+        });
+        h += 1;
+      }
+
+      // Evening activity
+      if (h < endH - 1) {
+        const evening = pool.find(a => !used.includes(a.name)) || pool[2] || pool[0];
+        itinerary.push({ time: `${String(Math.floor(h)).padStart(2,'0')}:00`, ...evening });
+        used.push(evening.name);
+        h += evening.duration;
+      }
+
+      // Head home
+      itinerary.push({
+        time: `${String(Math.floor(h)).padStart(2,'0')}:00`,
+        name: `Head back to ${startLocation}`,
+        desc: isRushHour ? 'Allow extra time — rush hour · check transit status' : 'Good time to head home · transit should be smooth',
+        icon: '🏠',
+        transit: 'Check dashboard for live status',
+        duration: 0
+      });
+
+      return itinerary;
+    }
+
+    function displayGeneratedTrip(itinerary, isRaining, isRushHour) {
+      let confidence = 90;
+      if (isRaining) confidence -= 8;
+      if (isRushHour) confidence -= 10;
+      if (document.querySelector('.briefing-advisory.high')) confidence -= 12;
+      confidence = Math.max(60, confidence);
+
+      const confidenceColor = confidence >= 80 ? '#4caf82' : confidence >= 65 ? '#e8a020' : '#f08080';
+      const confidenceLabel = confidence >= 80 ? 'High confidence' : confidence >= 65 ? 'Moderate — check updates' : 'Low — consider backup plans';
+
+      const output = document.getElementById('generateOutput');
+      output.innerHTML = `
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8a9ab5;margin-bottom:10px;">
+          Your generated Vancouver day
+        </div>
+        ${itinerary.map(item => `
+          <div class="gen-itinerary-item">
+            <div class="gen-time">${item.time}</div>
+            <div style="font-size:20px;flex-shrink:0">${item.icon}</div>
+            <div style="flex:1">
+              <div class="gen-activity-name">${item.name}</div>
+              <div class="gen-activity-desc">${item.desc}</div>
+              ${item.transit && item.transit !== 'Varies by location' && item.transit !== 'Wait it out'
+                ? `<span class="gen-transit-badge">🚌 ${item.transit}</span>`
+                : ''
+              }
+            </div>
+          </div>
+        `).join('')}
+        <div class="confidence-bar">
+          <div class="confidence-label">Plan confidence</div>
+          <div class="confidence-track">
+            <div class="confidence-fill" style="width:${confidence}%;background:${confidenceColor}"></div>
+          </div>
+          <div class="confidence-score" style="color:${confidenceColor}">${confidence}% · ${confidenceLabel}</div>
+        </div>
+      `;
+
+      document.getElementById('generateResult').style.display = 'block';
+      document.getElementById('generateResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function applyGeneratedTrip() {
+      generatedItinerary.forEach(item => {
+        if (item.name.includes('Head back') || item.name.includes('buffer') || item.name.includes('Lunch')) return;
+        stops.push({
+          from: '',
+          name: item.name,
+          leaveTime: item.time,
+          arriveTime: '',
+          route: item.transit || '',
+          fromLat: null,
+          fromLng: null,
+          toLat: null,
+          toLng: null
+        });
+      });
+
+      renderStops();
+      document.getElementById('generateResult').style.display = 'none';
+      document.getElementById('stopsList').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    setTimeOfDay();
+    renderCalendar();
+    initPlacesAutocomplete();
+    loadSharedPlan();
+  </script>
+  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  <script>
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'en',
+      includedLanguages: 'fr,zh-CN,zh-TW,ja,ko,vi,tl,pa,es,fa',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+      autoDisplay: false
+    }, 'google_translate_element');
+  }
+  </script>
+</body>
+</html>
