@@ -2,7 +2,6 @@
 
 > An all-in-one trip planning system built specifically for Vancouver — live weather, real-time transit, local events, smart route planning, and an AI-powered day generator.
 
-🔗 **Live demo:** [vancouver-transit.netlify.app](https://vancouver-transit.netlify.app)
 
 ---
 
